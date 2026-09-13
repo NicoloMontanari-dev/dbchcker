@@ -140,7 +140,7 @@ input{font:inherit;color:inherit}
 }
 .item.sel .rls{background:rgba(255,255,255,.2);color:#fff}
 .item .kind{width:5px;height:5px;border-radius:999px;background:var(--hairline-2);flex:none}
-.item.view .kind{background:var(--green)}
+.item.isview .kind{background:var(--green)}
 .sbfoot{border-top:.5px solid var(--hairline);padding:9px 12px;display:flex;align-items:center;gap:7px;color:var(--dim);font-size:10.5px}
 
 /* ---------------------------------------------------------------- canvas */
@@ -197,6 +197,16 @@ input{font:inherit;color:inherit}
 .card .cname{font-family:var(--mono);font-size:11px;fill:var(--on-var)}
 .card .ctype{font-family:var(--mono);font-size:10px;fill:var(--dim)}
 .card .row.hot rect{fill:rgba(0,122,255,.16)}
+.card.isview .bg{fill:#15211d;stroke:#2f6b57;stroke-dasharray:5 3}
+.card.isview .hd{fill:#1b2f28}
+.card.isview .tname{fill:#8fe3c2}
+.card.isext .bg{fill:#1c1c1f;stroke:#4a4a50;stroke-dasharray:4 3}
+.card.isext .hd{fill:#242428}
+.card.isext .tname{fill:#a6a6ad}
+.card .row.more .cname{fill:var(--dim);font-style:italic}
+.card .gen rect{fill:rgba(16,185,129,.16)}
+.card .gen text{fill:#6fe0b4}
+.wire.reads{stroke:#2f6b57;stroke-dasharray:5 4}
 .card .badge text{font-family:var(--mono);font-size:8px;font-weight:700}
 .card .pk rect{fill:var(--amber-soft)}.card .pk text{fill:var(--amber)}
 .card .fk rect{fill:var(--purple-soft)}.card .fk text{fill:#a984f0}
@@ -248,6 +258,7 @@ input{font:inherit;color:inherit}
 .tag.fk{background:var(--purple-soft);color:#a984f0}
 .tag.uq{background:rgba(0,122,255,.14);color:#7fb2ff}
 .tag.rls{background:var(--purple-soft);color:#b794f4}
+.tag.gen{background:var(--green-soft);color:#6fe0b4}
 .tag.ok{background:var(--green-soft);color:var(--green)}
 .tag.warn{background:var(--amber-soft);color:var(--amber)}
 .tag.del{background:rgba(255,69,58,.14);color:#ff8a80}
@@ -609,6 +620,12 @@ pre.code .s{color:#6fe0b4}
           <button id="wireCurve" class="on" data-wire="curve">Curve</button>
           <button id="wireOrtho" data-wire="ortho">Ortogonali</button>
         </div>
+        <button class="tbtn on" id="btnViews" title="Mostra o nascondi le viste nel grafo">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          Viste
+        </button>
         <button class="tbtn" id="btnGrid" title="Griglia">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
@@ -892,7 +909,7 @@ const Parser = (() => {
     const tail = rest.slice(tm[0].length).trim();
     const col = {
       name: m[1] || m[2], type: clean(tm[1]), notNull: false, pk: false, unique: false,
-      default: null, check: null, fk: null, comment: ""
+      default: null, check: null, fk: null, comment: "", generated: null, stored: false, identity: false
     };
     if (/\bNOT\s+NULL\b/i.test(tail)) col.notNull = true;
     if (/\bPRIMARY\s+KEY\b/i.test(tail)){ col.pk = true; col.notNull = true; }
@@ -904,6 +921,17 @@ const Parser = (() => {
       const open = cm.index + cm[0].length - 1;
       const end = matchParens(tail, open);
       if (end > 0) col.check = clean(tail.slice(open, end + 1));
+    }
+    const gm = /\bGENERATED\s+ALWAYS\s+AS\s*\(/i.exec(tail);
+    if (gm){
+      const open = gm.index + gm[0].length - 1;
+      const end = matchParens(tail, open);
+      if (end > 0){
+        col.generated = clean(tail.slice(open + 1, end));
+        col.stored = /\bSTORED\b/i.test(tail.slice(end));
+      }
+    } else if (/\bGENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY/i.test(tail)){
+      col.identity = true;
     }
     const fm = /\bREFERENCES\s+([\w."]+)\s*(?:\(\s*"?(\w+)"?\s*\))?/i.exec(tail);
     if (fm){
@@ -992,6 +1020,29 @@ const Parser = (() => {
     return i;
   }
 
+  /* Separa le CTE dalla query finale: "WITH x AS (...), y AS (...) SELECT ..."
+     Senza questo passaggio le colonne esposte sarebbero quelle della prima CTE
+     e il suo nome comparirebbe fra le tabelle lette. */
+  function splitCtes(sqlText){
+    const t = sqlText.trim();
+    if (!/^WITH\b/i.test(t)) return { names: [], main: t };
+    const names = [];
+    let i = t.replace(/^WITH\s+(RECURSIVE\s+)?/i, "").length;
+    i = t.length - i;
+    while (i < t.length){
+      const m = /^\s*("?[\w]+"?)\s+AS\s*\(/i.exec(t.slice(i));
+      if (!m) break;
+      names.push(m[1].replace(/"/g, "").toLowerCase());
+      const open = i + m[0].length - 1;
+      const close = matchParens(t, open);
+      if (close < 0) break;
+      i = close + 1;
+      const rest = /^\s*,/.exec(t.slice(i));
+      if (rest) i += rest[0].length; else break;
+    }
+    return { names, main: t.slice(i).trim() };
+  }
+
   function viewColumns(sqlText){
     const m = /\bSELECT\b([\s\S]*?)\bFROM\b/i.exec(sqlText);
     if (!m) return [];
@@ -1062,11 +1113,17 @@ const Parser = (() => {
     while ((m = viewRe.exec(msk))){
       const end = scanToSemicolon(msk, m.index + m[0].length);
       const text = sql.slice(m.index + m[0].length, end).trim();
-      const refs = [...new Set((text.match(/\b(?:FROM|JOIN)\s+([\w.]+)/gi) || [])
-        .map(x => x.replace(/\b(?:FROM|JOIN)\s+/i, "").toLowerCase()))].sort();
+      // per colonne e riferimenti si usa il testo mascherato: le virgole dentro
+      // i commenti spezzerebbero l'elenco delle colonne
+      const textMsk = msk.slice(m.index + m[0].length, end).trim();
+      const cte = splitCtes(textMsk);
+      const refs = [...new Set((textMsk.match(/\b(?:FROM|JOIN)\s+([\w."]+)/gi) || [])
+        .map(x => x.replace(/\b(?:FROM|JOIN)\s+/i, "").replace(/"/g, "").toLowerCase()))]
+        .filter(r => !cte.names.includes(r)).sort();
       model.views.push({
         name: m[1].replace(/"/g, ""), section: sectionFor(sections, m.index),
-        comment: leadingComment(sql, m.index), sql: text, references: refs, columns: viewColumns(text)
+        comment: leadingComment(sql, m.index), sql: text, references: refs,
+        ctes: cte.names, columns: viewColumns(cte.main)
       });
     }
 
@@ -1247,6 +1304,22 @@ const Parser = (() => {
     model.tables.forEach(t => { secMap[t.section.number] = t.section.title; });
     model.sections = Object.keys(secMap).map(n => ({ number: +n, title: secMap[n] })).sort((a,b) => a.number - b.number);
 
+    // riferimenti a tabelle non dichiarate nel file (es. auth.users di Supabase)
+    model.external = [];
+    const seenExt = {};
+    model.tables.forEach(t => t.fks.forEach(fk => {
+      if (byName[fk.refTable.toLowerCase()]) return;
+      const k = fk.refTable.toLowerCase();
+      seenExt[k] = seenExt[k] || { name: fk.refTable, column: fk.refColumn, from: [] };
+      seenExt[k].from.push({ table: t.name, column: fk.column, onDelete: fk.onDelete });
+    }));
+    model.views.forEach(v => v.references.forEach(r => {
+      if (byName[r] || model.views.some(x => x.name.toLowerCase() === r)) return;
+      seenExt[r] = seenExt[r] || { name: r, column: null, from: [] };
+      seenExt[r].fromViews = (seenExt[r].fromViews || []).concat(v.name);
+    }));
+    model.external = Object.values(seenExt);
+
     model.stats = {
       tables: model.tables.length,
       columns: model.tables.reduce((s,t) => s + t.columns.length, 0),
@@ -1256,7 +1329,9 @@ const Parser = (() => {
       functions: model.functions.length,
       triggers: model.triggers.length,
       policies: model.policies.length,
-      rls: model.tables.filter(t => t.rls.enabled).length
+      rls: model.tables.filter(t => t.rls.enabled).length,
+      external: model.external.length,
+      generated: model.tables.reduce((n, t) => n + t.columns.filter(c => c.generated).length, 0)
     };
     model.parseMs = Math.max(1, Math.round(performance.now() - t0));
     return model;
@@ -1280,6 +1355,8 @@ function renderDdl(t){
       if (c.fk.onDelete) r += ` ON DELETE ${c.fk.onDelete}`;
       bits.push(r);
     }
+    if (c.generated) bits.push(`GENERATED ALWAYS AS (${c.generated})${c.stored ? " STORED" : ""}`);
+    if (c.identity) bits.push("GENERATED ALWAYS AS IDENTITY");
     if (c.check) bits.push("CHECK " + c.check);
     return "    " + bits.join(" ");
   }).concat(t.constraints.map(c => "    " + c.definition));
@@ -1300,42 +1377,69 @@ function hl(sql){
 const NS = "http://www.w3.org/2000/svg";
 const ROW_H = 22, HEAD_H = 30, PAD_B = 6, COL_GAP = 120, NODE_GAP = 36;
 
-function measure(t){
-  let longest = t.name.length + 10;
-  t.columns.forEach(c => { longest = Math.max(longest, c.name.length + c.type.length + 10); });
-  const w = Math.max(190, Math.min(340, 22 + longest * 6.6));
-  const h = HEAD_H + t.columns.length * ROW_H + PAD_B;
+const MAX_VIEW_ROWS = 16;
+
+function measure(node){
+  let longest = node.name.length + 12;
+  node.rows.forEach(r => { longest = Math.max(longest, r.name.length + (r.type ? r.type.length : 0) + 10); });
+  const w = Math.max(node.kind === "ext" ? 160 : 190, Math.min(340, 22 + longest * 6.6));
+  const h = HEAD_H + node.rows.length * ROW_H + PAD_B;
   return { w, h };
 }
 
+function viewRows(v){
+  const cols = v.columns.map(c => ({ name: c.name, type: "", ofView: true }));
+  if (cols.length > MAX_VIEW_ROWS)
+    return cols.slice(0, MAX_VIEW_ROWS).concat([{ name: `+${cols.length - MAX_VIEW_ROWS} colonne`, type: "", more: true }]);
+  return cols;
+}
+
+/* Il grafo contiene tre tipi di nodo: tabelle, viste (tratteggiate, verdi) e
+   tabelle esterne, cioe' referenziate da una FK ma non dichiarate nel file
+   (es. auth.users di Supabase): senza queste ultime la relazione sparirebbe
+   senza dirlo. */
+function buildNodes(model){
+  const nodes = [];
+  model.tables.forEach(t => nodes.push({ kind: "table", name: t.name, data: t, rows: t.columns, x: 0, y: 0 }));
+  if (state.showViews)
+    model.views.forEach(v => nodes.push({ kind: "view", name: v.name, data: v, rows: viewRows(v), x: 0, y: 0 }));
+  (model.external || []).forEach(e => {
+    if (!state.showViews && e.fromViews && !e.from.length) return;
+    nodes.push({ kind: "ext", name: e.name, data: e, rows: e.column ? [{ name: e.column, type: "", ext: true }] : [], x: 0, y: 0 });
+  });
+  nodes.forEach(n => Object.assign(n, measure(n)));
+  return nodes;
+}
+
 function layout(model, mode){
-  const byName = {}; model.tables.forEach(t => byName[t.name.toLowerCase()] = t);
-  const nodes = model.tables.map(t => Object.assign({ table: t, x: 0, y: 0 }, measure(t)));
-  const nodeByName = {}; nodes.forEach(n => nodeByName[n.table.name.toLowerCase()] = n);
+  const nodes = buildNodes(model);
+  const nodeByName = {}; nodes.forEach(n => nodeByName[n.name.toLowerCase()] = n);
 
   const deps = {};
-  model.tables.forEach(t => {
-    deps[t.name] = [...new Set(t.fks
-      .map(f => f.refTable.toLowerCase())
-      .filter(x => byName[x] && x !== t.name.toLowerCase()))];
+  nodes.forEach(n => {
+    if (n.kind === "table"){
+      deps[n.name] = [...new Set(n.data.fks.map(f => f.refTable.toLowerCase())
+        .filter(x => nodeByName[x] && x !== n.name.toLowerCase()))];
+    } else if (n.kind === "view"){
+      deps[n.name] = [...new Set(n.data.references
+        .filter(r => nodeByName[r] && r !== n.name.toLowerCase()))];
+    } else deps[n.name] = [];
   });
 
   let columns;
   if (mode === "grouped"){
     const groups = {};
-    model.tables.forEach(t => {
-      const k = t.section.number;
-      (groups[k] = groups[k] || []).push(t.name);
+    nodes.forEach(n => {
+      const k = n.kind === "ext" ? -1 : n.kind === "view" ? 9999 : n.data.section.number;
+      (groups[k] = groups[k] || []).push(n.name);
     });
-    columns = Object.keys(groups).sort((a,b) => a - b).map(k => groups[k].sort());
+    columns = Object.keys(groups).sort((a, b) => a - b).map(k => groups[k].sort());
   } else {
     const level = {}; let pending = new Set(Object.keys(deps)); let guard = 0;
     while (pending.size && guard++ < 60){
       for (const n of [...pending]){
-        const d = deps[n].map(x => byName[x].name);
-        if (d.every(x => x in level)){
-          level[n] = 1 + Math.max(-1, ...d.map(x => level[x]));
-        }
+        const d = deps[n].map(x => nodeByName[x].name);
+        if (d.every(x => x in level)) level[n] = 1 + Math.max(-1, ...d.map(x => level[x]));
       }
       [...pending].forEach(n => { if (n in level) pending.delete(n); });
     }
@@ -1343,17 +1447,16 @@ function layout(model, mode){
     pending.forEach(n => level[n] = maxLv + 1);
     const buckets = {};
     Object.entries(level).forEach(([n, lv]) => (buckets[lv] = buckets[lv] || []).push(n));
-    columns = Object.keys(buckets).sort((a,b) => a - b).map(k => buckets[k].sort());
+    columns = Object.keys(buckets).sort((a, b) => a - b).map(k => buckets[k].sort());
 
-    // riduzione incroci: baricentro rispetto alla colonna precedente
     const pos = {}; columns.forEach(col => col.forEach((n, i) => pos[n] = i));
     for (let pass = 0; pass < 5; pass++){
       columns.forEach((col, ci) => {
         if (!ci) return;
         col.sort((a, b) => {
           const bary = n => {
-            const d = deps[n].map(x => byName[x].name).filter(x => x in pos);
-            return d.length ? d.reduce((s,x) => s + pos[x], 0) / d.length : pos[n];
+            const d = deps[n].map(x => nodeByName[x].name).filter(x => x in pos);
+            return d.length ? d.reduce((s, x) => s + pos[x], 0) / d.length : pos[n];
           };
           return bary(a) - bary(b) || a.localeCompare(b);
         });
@@ -1379,15 +1482,28 @@ function layout(model, mode){
   });
 
   const edges = [];
-  model.tables.forEach(t => {
-    t.fks.forEach(fk => {
-      const src = nodeByName[t.name.toLowerCase()];
-      const dst = nodeByName[fk.refTable.toLowerCase()];
-      if (!src || !dst || src === dst) return;
-      const srcRow = t.columns.findIndex(c => c.name === fk.column);
-      const dstRow = dst.table.columns.findIndex(c => c.name === fk.refColumn);
-      edges.push({ src, dst, srcRow, dstRow, fk, table: t });
-    });
+  nodes.forEach(n => {
+    if (n.kind === "table"){
+      n.data.fks.forEach(fk => {
+        const dst = nodeByName[fk.refTable.toLowerCase()];
+        if (!dst || dst === n) return;
+        edges.push({
+          src: n, dst, kind: "fk", fk,
+          srcName: n.name, dstName: dst.name,
+          srcRow: n.rows.findIndex(c => c.name === fk.column),
+          dstRow: dst.rows.findIndex(c => c.name === fk.refColumn)
+        });
+      });
+    } else if (n.kind === "view"){
+      n.data.references.forEach(r => {
+        const dst = nodeByName[r];
+        if (!dst || dst === n) return;
+        edges.push({
+          src: n, dst, kind: "reads", fk: { column: "legge", refColumn: dst.name },
+          srcName: n.name, dstName: dst.name, srcRow: -1, dstRow: -1
+        });
+      });
+    }
   });
   return { nodes, nodeByName, edges };
 }
@@ -1418,7 +1534,7 @@ const svg = $("#canvas");
 const state = {
   model: null, nodes: [], edges: [], nodeByName: {},
   view: { x: 0, y: 0, k: 1 },
-  layoutMode: "layered", wireMode: "curve", grid: true,
+  layoutMode: "layered", wireMode: "curve", grid: true, showViews: true,
   selected: null, isolate: false, tab: "schema", filter: "", fileName: ""
 };
 
@@ -1488,63 +1604,67 @@ function renderGraph(){
   gWires.innerHTML = ""; gNodes.innerHTML = "";
 
   state.edges.forEach(e => {
-    const p = el("path", {
-      d: wirePath(e, state.wireMode), class: "wire fk", "marker-end": "url(#ar)",
-      "data-src": e.table.name, "data-dst": e.dst.table.name
+    e.path = el("path", {
+      d: wirePath(e, state.wireMode),
+      class: "wire " + (e.kind === "reads" ? "reads" : "fk"),
+      "marker-end": "url(#ar)",
+      "data-src": e.srcName, "data-dst": e.dstName
     }, gWires);
-    e.path = p;
   });
 
   state.nodes.forEach(n => {
-    const t = n.table;
-    const g = el("g", { class: "card", transform: `translate(${n.x} ${n.y})`, "data-table": t.name }, gNodes);
+    const g = el("g", {
+      class: "card" + (n.kind === "view" ? " isview" : n.kind === "ext" ? " isext" : ""),
+      transform: `translate(${n.x} ${n.y})`, "data-table": n.name
+    }, gNodes);
     n.g = g;
     el("rect", { class: "bg", x: 0, y: 0, width: n.w, height: n.h, rx: 7 }, g);
-    el("rect", { class: "markbar", x: 0, y: 7, width: 3, height: n.h - 14 }, g);
-    const hd = el("path", {
+    el("rect", { class: "markbar", x: 0, y: 7, width: 3, height: Math.max(6, n.h - 14) }, g);
+    el("path", {
       class: "hd",
       d: `M0 7 a7 7 0 0 1 7 -7 h${n.w - 14} a7 7 0 0 1 7 7 v${HEAD_H - 7} h${-n.w} z`
     }, g);
-    const meta = t.columns.length + " col";
+
+    const meta = n.kind === "view" ? "vista" : n.kind === "ext" ? "esterna" : n.rows.length + " col";
     const metaW = meta.length * 6.2 + 11;
-    const rlsW = t.rls.enabled ? 32 : 0;
-    const nameMax = Math.max(6, Math.floor((n.w - 11 - metaW - rlsW - 8) / 7.1));
-    const shown = t.name.length > nameMax ? t.name.slice(0, nameMax - 1) + "…" : t.name;
+    const rls = n.kind === "table" && n.data.rls.enabled;
+    const nameMax = Math.max(6, Math.floor((n.w - 11 - metaW - (rls ? 32 : 0) - 8) / 7.1));
+    const shown = n.name.length > nameMax ? n.name.slice(0, nameMax - 1) + "…" : n.name;
     const tn = txt(g, 11, 19.5, "tname", shown);
-    if (shown !== t.name){
+    if (shown !== n.name){
       const ti = document.createElementNS(NS, "title");
-      ti.textContent = t.name;
+      ti.textContent = n.name;
       tn.appendChild(ti);
     }
     txt(g, n.w - 11, 19, "tmeta", meta, "end");
 
-    if (t.rls.enabled){
+    if (rls){
       const fg = el("g", { class: "focusflag", transform: `translate(${n.w - metaW - 30} 7)` }, g);
       el("rect", { x: 0, y: 0, width: 26, height: 13, rx: 6.5 }, fg);
       txt(fg, 13, 9.4, "", "RLS", "middle");
     }
 
-    t.columns.forEach((c, i) => {
+    n.rows.forEach((c, i) => {
       const y = HEAD_H + i * ROW_H;
-      const rg = el("g", { class: "row", "data-col": c.name }, g);
+      const rg = el("g", { class: "row" + (c.more ? " more" : ""), "data-col": c.name }, g);
       el("rect", { x: 1, y, width: n.w - 2, height: ROW_H, fill: "transparent" }, rg);
       let tx = 10;
-      if (c.pk || c.fk){
-        const bg = el("g", { class: "badge " + (c.pk ? "pk" : "fk"), transform: `translate(${tx} ${y + 5.5})` }, rg);
-        el("rect", { x: 0, y: 0, width: 17, height: 11, rx: 3 }, bg);
-        txt(bg, 8.5, 8.2, "", c.pk ? "PK" : "FK", "middle");
-        tx += 22;
+      const badge = c.pk ? "pk" : c.fk ? "fk" : c.generated ? "gen" : null;
+      if (badge){
+        const bg = el("g", { class: "badge " + badge, transform: `translate(${tx} ${y + 5.5})` }, rg);
+        el("rect", { x: 0, y: 0, width: badge === "gen" ? 20 : 17, height: 11, rx: 3 }, bg);
+        txt(bg, badge === "gen" ? 10 : 8.5, 8.2, "", badge.toUpperCase(), "middle");
+        tx += badge === "gen" ? 25 : 22;
       }
       txt(rg, tx, y + 14.5, "cname", c.name);
-      const type = c.type.length > 18 ? c.type.slice(0, 17) + "…" : c.type;
-      txt(rg, n.w - 10, y + 14.5, "ctype", type, "end");
-      if (c.notNull && !c.pk) txt(rg, n.w - 10 - type.length * 5.9 - 8, y + 14.5, "nn", "•", "end");
+      if (c.type){
+        const type = c.type.length > 18 ? c.type.slice(0, 17) + "…" : c.type;
+        txt(rg, n.w - 10, y + 14.5, "ctype", type, "end");
+        if (c.notNull && !c.pk) txt(rg, n.w - 10 - type.length * 5.9 - 8, y + 14.5, "nn", "•", "end");
+      }
     });
   });
 
-  state.edges.forEach(e => {
-    if (e.srcRow >= 0) return;
-  });
   updateHighlight();
   updateHud();
 }
@@ -1559,25 +1679,25 @@ function updateHighlight(){
   if (sel){
     related.add(sel.toLowerCase());
     state.edges.forEach(e => {
-      if (e.table.name.toLowerCase() === sel.toLowerCase()) related.add(e.dst.table.name.toLowerCase());
-      if (e.dst.table.name.toLowerCase() === sel.toLowerCase()) related.add(e.table.name.toLowerCase());
+      if (e.srcName.toLowerCase() === sel.toLowerCase()) related.add(e.dstName.toLowerCase());
+      if (e.dstName.toLowerCase() === sel.toLowerCase()) related.add(e.srcName.toLowerCase());
     });
   }
   const f = state.filter.trim().toLowerCase();
   state.nodes.forEach(n => {
-    const name = n.table.name.toLowerCase();
+    const name = n.name.toLowerCase();
     const isSel = sel && name === sel.toLowerCase();
     const isRel = related.has(name) && !isSel;
     let mute = false;
-    if (f) mute = !(name.includes(f) || n.table.columns.some(c => c.name.toLowerCase().includes(f)));
+    if (f) mute = !(name.includes(f) || n.rows.some(c => c.name.toLowerCase().includes(f)));
     else if (sel && state.isolate) mute = !related.has(name);
     n.g.setAttribute("class", "card" + (isSel ? " sel" : "") + (isRel ? " rel" : "")
       + (state.marked.has(name) ? " marked" : "") + (mute ? " mute" : ""));
   });
   state.edges.forEach(e => {
-    const hot = sel && (e.table.name.toLowerCase() === sel.toLowerCase() || e.dst.table.name.toLowerCase() === sel.toLowerCase());
-    let cls = "wire fk";
-    if (hot) cls = "wire hot";
+    const hot = sel && (e.srcName.toLowerCase() === sel.toLowerCase() || e.dstName.toLowerCase() === sel.toLowerCase());
+    let cls = "wire " + (e.kind === "reads" ? "reads" : "fk");
+    if (hot) cls = "wire hot" + (e.kind === "reads" ? " reads" : "");
     else if (sel && state.isolate) cls = "wire mute";
     else if (f) cls = "wire mute";
     e.path.setAttribute("class", cls);
@@ -1729,7 +1849,7 @@ function renderSidebar(){
     html += `<div class="secgroup"><button class="sectitle">
       <span class="tw"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
       <span>viste</span><span class="n">${vlist.length}</span></button><div class="secitems">` +
-      vlist.map(v => `<button class="item view" data-view="${esc(v.name)}">
+      vlist.map(v => `<button class="item isview" data-view="${esc(v.name)}">
         <span class="kind"></span><span class="nm">${esc(v.name)}</span></button>`).join("") + `</div></div>`;
   }
   box.innerHTML = html || `<p class="empty" style="padding:12px">Nessun oggetto corrisponde al filtro.</p>`;
@@ -1791,7 +1911,7 @@ function renderInspector(){
     return;
   }
   const v = viewByName(state.selected);
-  if (v){ renderViewInspector(v); acts.hidden = true; return; }
+  if (v){ renderViewInspector(v); acts.hidden = !state.nodeByName[v.name.toLowerCase()]; return; }
   const t = tableByName(state.selected);
   if (!t){ body.innerHTML = `<p class="empty">Oggetto non trovato.</p>`; acts.hidden = true; return; }
   acts.hidden = false;
@@ -1821,7 +1941,8 @@ function schemaTab(t){
   h += `<div class="isec"><div class="caps">Colonne <span class="r">${t.columns.length}</span></div>
     <div class="panel"><div class="collist">` +
     t.columns.map(c => `<div class="col" data-col="${esc(c.name)}" title="${esc(c.comment || "")}">
-      ${c.pk ? '<span class="tag pk">PK</span>' : c.fk ? '<span class="tag fk">FK</span>' : ""}
+      ${c.pk ? '<span class="tag pk">PK</span>' : c.fk ? '<span class="tag fk">FK</span>'
+        : c.generated ? '<span class="tag gen">GEN</span>' : ""}
       <span class="nm">${esc(c.name)}</span>
       ${c.notNull ? '<span class="req">NN</span>' : ""}
       <span class="ty">${esc(c.type)}</span>
@@ -1832,6 +1953,17 @@ function schemaTab(t){
     h += `<div class="isec"><div class="caps">Note sulle colonne</div>` +
       withNotes.map(c => `<div class="note" style="margin-bottom:6px">
         <b class="mono" style="color:var(--on)">${esc(c.name)}</b> — ${esc(c.comment)}</div>`).join("") + `</div>`;
+  }
+
+  const gens = t.columns.filter(c => c.generated || c.identity);
+  if (gens.length){
+    h += `<div class="isec"><div class="caps">Colonne calcolate dal database <span class="r">${gens.length}</span></div>` +
+      gens.map(c => `<div class="panel">
+        <div class="ptitle"><span class="nm">${esc(c.name)}</span>
+          <span class="tag gen">${c.identity ? "IDENTITY" : c.stored ? "STORED" : "VIRTUAL"}</span></div>
+        ${c.generated ? `<pre class="code">${hl(c.generated)}</pre>` : ""}
+        <div class="prow"><span class="k">Scrittura</span><span class="v">non impostabile dall'app</span></div>
+      </div>`).join("") + `</div>`;
   }
 
   const withDefaults = t.columns.filter(c => c.default);
@@ -2090,6 +2222,15 @@ document.querySelectorAll("[data-wire]").forEach(b => b.addEventListener("click"
   state.wireMode = b.dataset.wire;
   refreshWires();
 }));
+$("#btnViews").addEventListener("click", () => {
+  state.showViews = !state.showViews;
+  $("#btnViews").classList.toggle("on", state.showViews);
+  if (state.model){
+    if (!state.showViews && state.selected && viewByName(state.selected)) select(null);
+    buildLayout(); updateHighlight();
+    toast(state.showViews ? "Viste mostrate nel grafo" : "Viste nascoste");
+  }
+});
 $("#btnGrid").addEventListener("click", () => {
   state.grid = !state.grid;
   $("#btnGrid").classList.toggle("on", state.grid);
@@ -2116,8 +2257,10 @@ $("#btnIsolate").addEventListener("click", () => {
   toast(state.isolate ? "Mostrate solo le relazioni dirette" : "Mostrato l'intero schema");
 });
 $("#btnCopyDdl").addEventListener("click", async () => {
-  const t = tableByName(state.selected); if (!t) return;
-  const ddl = renderDdl(t);
+  const v = viewByName(state.selected);
+  const t = tableByName(state.selected);
+  if (!t && !v) return;
+  const ddl = v ? `CREATE OR REPLACE VIEW ${v.name} AS\n${v.sql};` : renderDdl(t);
   try { await navigator.clipboard.writeText(ddl); toast("DDL copiato negli appunti"); }
   catch(e){
     const ta = document.createElement("textarea");
@@ -2169,7 +2312,7 @@ $("#btnMark").addEventListener("click", () => { if (state.selected) toggleMark(s
 function neighboursOf(names){
   const out = new Set(names);
   state.edges.forEach(e => {
-    const a = e.table.name.toLowerCase(), b = e.dst.table.name.toLowerCase();
+    const a = e.srcName.toLowerCase(), b = e.dstName.toLowerCase();
     if (names.has(a)) out.add(b);
     if (names.has(b)) out.add(a);
   });
@@ -2177,7 +2320,7 @@ function neighboursOf(names){
 }
 
 function exportScopeSet(scope){
-  const all = new Set(state.nodes.map(n => n.table.name.toLowerCase()));
+  const all = new Set(state.nodes.map(n => n.name.toLowerCase()));
   const marked = new Set(state.marked);
   const sel = state.selected ? new Set([state.selected.toLowerCase()]) : new Set();
   let set, label;
@@ -2203,6 +2346,14 @@ const EXPORT_STYLE = `
   .wire.fk{stroke:#7a66ab}
   .card .bg{fill:#1f1f21;stroke:#37373b}
   .card .hd{fill:#2a2a2c}
+  .card.isview .bg{fill:#15211d;stroke:#2f6b57;stroke-dasharray:5 3}
+  .card.isview .hd{fill:#1b2f28}
+  .card.isview .tname{fill:#8fe3c2}
+  .card.isext .bg{fill:#1c1c1f;stroke:#4a4a50;stroke-dasharray:4 3}
+  .card.isext .hd{fill:#242428}
+  .card.isext .tname{fill:#a6a6ad}
+  .wire.reads{stroke:#2f6b57;stroke-dasharray:5 4}
+  .gen rect{fill:rgba(16,185,129,.16)}.gen text{fill:#6fe0b4}
   .card.marked .bg{stroke:#10b981;stroke-width:1.6}
   .card.sel .bg{stroke:#007aff;stroke-width:1.8}
   .card.sel .hd{fill:#1e3255}
@@ -2228,12 +2379,12 @@ const EXPORT_STYLE = `
    l'immagine erediterebbe le posizioni del grafo completo e verrebbe
    enorme e quasi tutta vuota. */
 function compactLayout(nodes, edges, gapX){
-  const key = n => n.table.name.toLowerCase();
+  const key = n => n.name.toLowerCase();
   const inSet = new Set(nodes.map(key));
   const deps = {};
   nodes.forEach(n => deps[key(n)] = new Set());
   edges.forEach(e => {
-    const a = e.table.name.toLowerCase(), b = e.dst.table.name.toLowerCase();
+    const a = e.srcName.toLowerCase(), b = e.dstName.toLowerCase();
     if (inSet.has(a) && inSet.has(b) && a !== b) deps[a].add(b);
   });
   const level = {}; let pending = new Set(Object.keys(deps)), guard = 0;
@@ -2258,7 +2409,7 @@ function compactLayout(nodes, edges, gapX){
   lvs.forEach((lv, i) => {
     const wmax = Math.max(...cols[lv].map(n => n.w));
     let y = (tallest - heights[i]) / 2;
-    cols[lv].sort((a, b) => a.table.name.localeCompare(b.table.name)).forEach(n => {
+    cols[lv].sort((a, b) => a.name.localeCompare(b.name)).forEach(n => {
       pos[key(n)] = { x: x + (wmax - n.w) / 2, y };
       y += n.h + GAP_Y;
     });
@@ -2271,17 +2422,17 @@ function buildExportSvg(scope){
   const picked = exportScopeSet(scope);
   if (!picked) return null;
   const { set, label } = picked;
-  const nodes = state.nodes.filter(n => set.has(n.table.name.toLowerCase()));
+  const nodes = state.nodes.filter(n => set.has(n.name.toLowerCase()));
   if (!nodes.length) return null;
 
   const keep = new Map();
   const subEdges = state.edges.filter(e =>
-    set.has(e.table.name.toLowerCase()) && set.has(e.dst.table.name.toLowerCase()));
+    set.has(e.srcName.toLowerCase()) && set.has(e.dstName.toLowerCase()));
   if (scope !== "all"){
     const pos = compactLayout(nodes, subEdges, nodes.length <= 6 ? 190 : 120);
     nodes.forEach(n => {
       keep.set(n, { x: n.x, y: n.y });
-      const p = pos[n.table.name.toLowerCase()];
+      const p = pos[n.name.toLowerCase()];
       if (p){ n.x = p.x; n.y = p.y; }
     });
   }
@@ -2297,9 +2448,9 @@ function buildExportSvg(scope){
   let body = "";
   subEdges.forEach(e => {
     const d = wirePath(e, scope === "all" ? state.wireMode : "curve");
-    body += `<path class="wire fk" d="${d}" marker-end="url(#ar)"/>`;
+    body += `<path class="wire ${e.kind === "reads" ? "reads" : "fk"}" d="${d}" marker-end="url(#ar)"/>`;
     // etichetta della colonna: utile quando si esporta una singola relazione
-    if (set.size <= 6){
+    if (set.size <= 6 && e.kind !== "reads"){
       const sy = rowY(e.src, e.srcRow), dy = rowY(e.dst, e.dstRow);
       const fromLeft = e.dst.x + e.dst.w / 2 < e.src.x + e.src.w / 2;
       const x1 = fromLeft ? e.src.x : e.src.x + e.src.w;
@@ -2316,8 +2467,8 @@ function buildExportSvg(scope){
     const clone = n.g.cloneNode(true);
     clone.setAttribute("transform", `translate(${n.x} ${n.y})`);
     clone.classList.remove("mute", "sel", "rel", "marked");
-    if (state.marked.has(n.table.name.toLowerCase())) clone.classList.add("marked");
-    else if (scope === "sel-rel" && state.selected && n.table.name === state.selected) clone.classList.add("sel");
+    if (state.marked.has(n.name.toLowerCase())) clone.classList.add("marked");
+    else if (scope === "sel-rel" && state.selected && n.name === state.selected) clone.classList.add("sel");
     body += clone.outerHTML;
   });
 
@@ -2373,7 +2524,7 @@ function scopeInfo(scope){
 }
 
 function buildExportMenu(){
-  const sel = state.selected && tableByName(state.selected) ? state.selected : null;
+  const sel = state.selected && state.nodeByName[state.selected.toLowerCase()] ? state.selected : null;
   const marks = state.marked.size;
   const rows = [
     { scope: "sel-rel", icon: "link", title: sel ? `Relazioni di ${sel}` : "Relazioni della tabella selezionata",
@@ -2723,6 +2874,18 @@ function lintRules(m){
     why: "Senza clausola vale NO ACTION: la cancellazione del padre fallisce con un errore di vincolo. Spesso è quello che si vuole, ma è meglio scriverlo — RESTRICT, SET NULL o CASCADE dicono a chi legge quale comportamento è stato scelto davvero."
   });
 
+  // 13. riferimenti fuori dal file
+  rules.push({
+    id: "ext-ref", sev: "info", title: "Riferimenti a tabelle non presenti nel file",
+    hits: (m.external || []).map(e => ({
+      label: e.name,
+      sub: e.from.length ? "da " + e.from.map(f => f.table + "." + f.column).slice(0, 3).join(", ")
+                         : "letta da " + (e.fromViews || []).join(", "),
+      table: (e.from[0] || {}).table || ""
+    })),
+    why: "Una chiave esterna o una vista punta a una tabella che questo file non dichiara — tipicamente uno schema gestito altrove, come auth.users di Supabase. Nel grafo compare come nodo tratteggiato grigio: il collegamento esiste, ma la struttura della destinazione qui non c'è."
+  });
+
   rules.forEach(r => r.pass = r.hits.length === 0);
   return rules;
 }
@@ -2744,7 +2907,7 @@ function renderLint(){
     <div class="phead">
       <div>
         <h2>Analisi dello schema</h2>
-        <p>Dodici controlli eseguiti su <span class="mono">${esc(state.fileName)}</span>: solo regole verificabili leggendo il file,
+        <p>Tredici controlli eseguiti su <span class="mono">${esc(state.fileName)}</span>: solo regole verificabili leggendo il file,
            nessuna stima di performance. Ogni riscontro apre la tabella nel grafo.</p>
       </div>
     </div>
@@ -2791,6 +2954,7 @@ function colSig(c){
     type: c.type.toUpperCase().replace(/\s+/g, ""),
     notNull: !!c.notNull, pk: !!c.pk, unique: !!c.unique,
     def: (c.default || "").replace(/\s+/g, " ").trim().toLowerCase(),
+    gen: (c.generated || "").replace(/\s+/g, " ").trim().toLowerCase(),
     fk: c.fk ? `${c.fk.table}.${c.fk.column}${c.fk.onDelete ? " ON DELETE " + c.fk.onDelete : ""}`.toLowerCase() : ""
   };
 }
@@ -2804,6 +2968,7 @@ function colDdl(c){
   if (c.default) bits.push("DEFAULT " + c.default);
   if (c.unique) bits.push("UNIQUE");
   if (c.fk) bits.push(`REFERENCES ${c.fk.table}(${c.fk.column})${c.fk.onDelete ? " ON DELETE " + c.fk.onDelete : ""}`);
+  if (c.generated) bits.push(`GENERATED ALWAYS AS (${c.generated})${c.stored ? " STORED" : ""}`);
   if (c.check) bits.push("CHECK " + c.check);
   return bits.join(" ");
 }
@@ -2832,6 +2997,7 @@ function computeDiff(A, B){
       if (sa.type !== sb.type) deltas.push({ what: "tipo", from: o.type, to: c.type });
       if (sa.notNull !== sb.notNull) deltas.push({ what: "nullabilità", from: sa.notNull ? "NOT NULL" : "null ammesso", to: sb.notNull ? "NOT NULL" : "null ammesso" });
       if (sa.def !== sb.def) deltas.push({ what: "default", from: o.default || "nessuno", to: c.default || "nessuno" });
+      if (sa.gen !== sb.gen) deltas.push({ what: "colonna generata", from: o.generated || "nessuna", to: c.generated || "nessuna" });
       if (sa.fk !== sb.fk) deltas.push({ what: "riferimento", from: sa.fk || "nessuno", to: sb.fk || "nessuno" });
       if (sa.pk !== sb.pk) deltas.push({ what: "chiave primaria", from: sa.pk ? "sì" : "no", to: sb.pk ? "sì" : "no" });
       if (deltas.length) colsChanged.push({ col: c, old: o, deltas });
@@ -2856,7 +3022,29 @@ function computeDiff(A, B){
     }
   });
 
-  return { added, removed, changed, A, B };
+  // viste
+  const va = {}, vb = {};
+  A.views.forEach(v => va[v.name.toLowerCase()] = v);
+  B.views.forEach(v => vb[v.name.toLowerCase()] = v);
+  const normSql = x => String(x).replace(/\s+/g, " ").replace(/"/g, "").trim().toLowerCase();
+  const viewsAdded = B.views.filter(v => !va[v.name.toLowerCase()]);
+  const viewsRemoved = A.views.filter(v => !vb[v.name.toLowerCase()]);
+  const viewsChanged = [];
+  B.views.forEach(v => {
+    const o = va[v.name.toLowerCase()];
+    if (!o) return;
+    if (normSql(o.sql) === normSql(v.sql)) return;
+    const ca = o.columns.map(c => c.name), cb = v.columns.map(c => c.name);
+    viewsChanged.push({
+      a: o, b: v,
+      colsAdded: cb.filter(x => !ca.includes(x)),
+      colsRemoved: ca.filter(x => !cb.includes(x)),
+      refsAdded: v.references.filter(x => !o.references.includes(x)),
+      refsRemoved: o.references.filter(x => !v.references.includes(x))
+    });
+  });
+
+  return { added, removed, changed, viewsAdded, viewsRemoved, viewsChanged, A, B };
 }
 
 function genMigration(d, direction){
@@ -2918,6 +3106,17 @@ function genMigration(d, direction){
       out.push(...lines, "");
     }
   });
+
+  const vAdd = up ? d.viewsAdded : d.viewsRemoved;
+  const vDel = up ? d.viewsRemoved : d.viewsAdded;
+  vDel.forEach(v => out.push(`DROP VIEW IF EXISTS ${v.name};`));
+  if (vDel.length) out.push("");
+  vAdd.forEach(v => { out.push(`CREATE OR REPLACE VIEW ${v.name} AS`, v.sql + ";", ""); });
+  d.viewsChanged.forEach(ch => {
+    const v = up ? ch.b : ch.a;
+    out.push(`CREATE OR REPLACE VIEW ${v.name} AS`, v.sql + ";", "");
+  });
+
   return out.join("\n").trim() || "-- nessuna differenza fra i due file";
 }
 
@@ -2974,7 +3173,8 @@ function renderDiff(){
   const colsMod = d.changed.reduce((n, c) => n + c.colsChanged.length, 0);
   const idxAdd = d.changed.reduce((n, c) => n + c.idxAdded.length, 0) + d.added.reduce((n, t) => n + t.indexes.length, 0);
   const consAdd = d.changed.reduce((n, c) => n + c.consAdded.length, 0);
-  const total = d.added.length + d.removed.length + d.changed.length;
+  const vTotal = d.viewsAdded.length + d.viewsRemoved.length + d.viewsChanged.length;
+  const total = d.added.length + d.removed.length + d.changed.length + vTotal;
   $("#navDiffN").textContent = total || "";
 
   html += `
@@ -2987,6 +3187,7 @@ function renderDiff(){
       <div class="tile ${colsMod ? "mod" : ""}"><span class="tn">${colsMod}</span><span class="tl">colonne cambiate</span></div>
       <div class="tile ${consAdd ? "add" : ""}"><span class="tn">${consAdd ? "+" + consAdd : 0}</span><span class="tl">vincoli aggiunti</span></div>
       <div class="tile ${idxAdd ? "add" : ""}"><span class="tn">${idxAdd ? "+" + idxAdd : 0}</span><span class="tl">indici aggiunti</span></div>
+      <div class="tile ${vTotal ? "mod" : ""}"><span class="tn">${vTotal}</span><span class="tl">viste toccate</span></div>
     </div>`;
 
   if (!total){
@@ -3049,6 +3250,41 @@ function renderDiff(){
       (ch.polA !== ch.polB ? `<div class="dline mod"><span class="sign">~</span><span class="kind">policy</span>
         <span class="was">${ch.polA}</span><span>→</span><span>${ch.polB}</span></div>` : "") +
       `</div></div>`;
+  });
+
+  d.viewsAdded.forEach(v => {
+    html += `<div class="dtable closed" data-t="${esc(v.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev ok">vista nuova</span><span class="nm">${esc(v.name)}</span>
+        <span class="sum"><span style="color:var(--green)">+${v.columns.length} colonne</span></span></div>
+      <div class="dtbody"><div class="dline add"><span class="sign">+</span><span class="kind">legge</span>
+        <span>${esc(v.references.join(", "))}</span></div>
+        ${v.columns.map(c => `<div class="dline add"><span class="sign">+</span><span>${esc(c.name)}</span>
+          <span class="was">${esc(c.expr.slice(0, 60))}</span></div>`).join("")}</div></div>`;
+  });
+  d.viewsRemoved.forEach(v => {
+    html += `<div class="dtable closed" data-t="${esc(v.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev alta">vista rimossa</span><span class="nm">${esc(v.name)}</span>
+        <span class="sum"><span style="color:#ff8a80">−${v.columns.length} colonne</span></span></div>
+      <div class="dtbody">${v.columns.map(c => `<div class="dline del"><span class="sign">−</span><span>${esc(c.name)}</span></div>`).join("")}</div></div>`;
+  });
+  d.viewsChanged.forEach(ch => {
+    const bits = [];
+    if (ch.colsAdded.length) bits.push(`<span style="color:var(--green)">+${ch.colsAdded.length} col</span>`);
+    if (ch.colsRemoved.length) bits.push(`<span style="color:#ff8a80">−${ch.colsRemoved.length} col</span>`);
+    if (!bits.length) bits.push(`<span style="color:var(--blue-2)">definizione</span>`);
+    html += `<div class="dtable" data-t="${esc(ch.b.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev info">vista modificata</span><span class="nm">${esc(ch.b.name)}</span>
+        <span class="sum">${bits.join("")}</span></div>
+      <div class="dtbody">` +
+      ch.colsAdded.map(c => `<div class="dline add"><span class="sign">+</span><span class="kind">colonna</span><span>${esc(c)}</span></div>`).join("") +
+      ch.colsRemoved.map(c => `<div class="dline del"><span class="sign">−</span><span class="kind">colonna</span><span>${esc(c)}</span></div>`).join("") +
+      ch.refsAdded.map(r => `<div class="dline add"><span class="sign">+</span><span class="kind">legge</span><span>${esc(r)}</span></div>`).join("") +
+      ch.refsRemoved.map(r => `<div class="dline del"><span class="sign">−</span><span class="kind">legge</span><span>${esc(r)}</span></div>`).join("") +
+      `<div class="dline mod"><span class="sign">~</span><span class="kind">definizione</span><span class="was">la query è cambiata</span></div>
+      </div></div>`;
   });
 
   html += `
