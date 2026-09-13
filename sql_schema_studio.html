@@ -1,0 +1,3145 @@
+<!doctype html>
+<html lang="it" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SQL Schema Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* ===================================================================
+   SQL Schema Studio — visualizzatore ER offline per schemi PostgreSQL
+   Design system: macOS developer tool, dark workstation profile
+   =================================================================== */
+:root{
+  --bg:#131315;
+  --canvas:#121214;
+  --s-lowest:#0e0e10;
+  --s-low:#1b1b1d;
+  --s:#1f1f21;
+  --s-high:#2a2a2c;
+  --s-highest:#353437;
+  --sidebar:#18181a;
+  --on:#e4e2e4;
+  --on-var:#c1c6d7;
+  --dim:#8e8e93;
+  --outline:#8b90a0;
+  --hairline:#2c2c2e;
+  --hairline-2:#414755;
+  --blue:#007aff;
+  --blue-2:#4b8eff;
+  --blue-soft:rgba(0,122,255,.15);
+  --purple:#8957e5;
+  --purple-soft:rgba(137,87,229,.15);
+  --green:#10b981;
+  --green-soft:rgba(16,185,129,.15);
+  --amber:#f59e0b;
+  --amber-soft:rgba(245,158,11,.15);
+  --red:#ff453a;
+  --red-soft:rgba(255,69,58,.15);
+  --wire:#3a3a3c;
+  --radius:4px;
+  --radius-lg:8px;
+  --ui:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--on);font-family:var(--ui);
+  font-size:13px;line-height:18px;letter-spacing:-.01em;overflow:hidden;
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:1px;border-radius:3px}
+.mono{font-family:var(--mono)}
+.caps{font-size:10px;font-weight:700;line-height:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+
+/* ---------------------------------------------------------------- shell */
+.app{display:grid;grid-template-rows:52px minmax(0,1fr) 26px;height:100vh}
+.titlebar{
+  display:flex;align-items:center;gap:14px;padding:0 12px 0 14px;background:var(--s-low);
+  border-bottom:.5px solid var(--hairline);user-select:none;
+}
+.brand{display:flex;align-items:center;gap:9px;flex:none}
+.brandmark{
+  width:30px;height:30px;border-radius:7px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(160deg,#2b3b5c,#16202f);border:.5px solid var(--hairline-2);
+}
+.brandmark svg{width:17px;height:17px}
+.brandtext b{display:block;font-size:13px;font-weight:600;line-height:15px}
+.brandtext span{display:block;font-size:9.5px;line-height:12px;color:var(--dim);letter-spacing:.02em}
+.crumb{
+  display:flex;align-items:center;gap:9px;height:30px;padding:0 11px;border-radius:var(--radius);
+  background:var(--s);border:.5px solid var(--hairline);max-width:400px;min-width:0;
+}
+.crumb .ico{color:var(--dim);flex:none;display:grid}
+.crumb .file{font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb .sep{color:var(--hairline-2)}
+.crumb .obj{font-family:var(--mono);font-size:11.5px;color:var(--blue-2);white-space:nowrap}
+.searchwrap{position:relative;flex:1;min-width:120px;max-width:520px}
+.searchwrap .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--dim);pointer-events:none}
+#search{
+  width:100%;height:30px;padding:0 34px;border-radius:var(--radius);background:var(--s-lowest);
+  border:.5px solid var(--hairline);font-size:12px;
+}
+#search::placeholder{color:var(--dim)}
+#search:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px var(--blue-soft)}
+.kbd{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10px;
+  color:var(--dim);border:.5px solid var(--hairline-2);border-radius:3px;padding:1px 4px;pointer-events:none;
+}
+.tbright{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
+.statuspill{
+  display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:var(--radius);
+  background:var(--green-soft);border:.5px solid rgba(16,185,129,.35);
+}
+.statuspill .dot{width:6px;height:6px;border-radius:999px;background:var(--green);flex:none}
+.statuspill b{font-size:11.5px;font-weight:600;color:#6fe0b4;line-height:13px}
+.statuspill span{font-family:var(--mono);font-size:11px;color:var(--green)}
+.iconbtn{
+  width:30px;height:30px;border-radius:var(--radius);display:grid;place-items:center;color:var(--on-var);
+  border:.5px solid transparent;
+}
+.iconbtn:hover{background:rgba(255,255,255,.06)}
+.iconbtn.on{background:var(--blue);color:#fff}
+
+/* ---------------------------------------------------------------- body */
+.body{display:grid;grid-template-columns:250px minmax(0,1fr) 380px;min-height:0}
+.body.noinspector{grid-template-columns:250px minmax(0,1fr)}
+.sidebar{
+  background:var(--sidebar);border-right:.5px solid var(--hairline);display:flex;flex-direction:column;min-height:0;
+}
+.sbhead{display:flex;align-items:baseline;justify-content:space-between;padding:11px 12px 7px}
+.sbhead .count{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.sblist{overflow-y:auto;padding:0 6px 14px;flex:1;scrollbar-width:thin}
+.sblist::-webkit-scrollbar{width:9px}
+.sblist::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:9px;border:3px solid var(--sidebar)}
+.secgroup{margin-bottom:2px}
+.sectitle{
+  display:flex;align-items:center;gap:6px;width:100%;padding:7px 8px 5px;text-align:left;
+  font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);
+}
+.sectitle .tw{transition:transform .12s ease;flex:none;color:var(--hairline-2)}
+.secgroup.closed .tw{transform:rotate(-90deg)}
+.secgroup.closed .secitems{display:none}
+.sectitle .n{margin-left:auto;font-family:var(--mono);font-weight:400;letter-spacing:0}
+.item{
+  display:flex;align-items:center;gap:7px;width:100%;height:26px;padding:0 8px;border-radius:var(--radius);
+  text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--on-var);
+}
+.item:hover{background:rgba(255,255,255,.06)}
+.item.sel{background:var(--blue);color:#fff}
+.item .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .rls{
+  margin-left:auto;font-size:8.5px;font-weight:700;letter-spacing:.04em;padding:1px 4px;border-radius:999px;
+  background:var(--purple-soft);color:#b794f4;flex:none;
+}
+.item.sel .rls{background:rgba(255,255,255,.2);color:#fff}
+.item .kind{width:5px;height:5px;border-radius:999px;background:var(--hairline-2);flex:none}
+.item.view .kind{background:var(--green)}
+.sbfoot{border-top:.5px solid var(--hairline);padding:9px 12px;display:flex;align-items:center;gap:7px;color:var(--dim);font-size:10.5px}
+
+/* ---------------------------------------------------------------- canvas */
+.stage{display:flex;flex-direction:column;min-width:0;background:var(--canvas);position:relative}
+.toolbar{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:.5px solid var(--hairline);
+  background:var(--s-low);flex:none;flex-wrap:wrap;
+}
+.seg{display:flex;background:var(--s-lowest);border:.5px solid var(--hairline);border-radius:var(--radius);padding:2px;gap:2px}
+.seg button{
+  display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:3px;font-size:11.5px;
+  color:var(--on-var);
+}
+.seg button.on{background:var(--blue);color:#fff;font-weight:500}
+.seg button:not(.on):hover{background:rgba(255,255,255,.06)}
+.tbtn{
+  display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--radius);font-size:11.5px;
+  color:var(--on-var);border:.5px solid var(--hairline);background:var(--s);
+}
+.tbtn:hover{background:var(--s-high)}
+.tbtn.accent{background:var(--blue-soft);border-color:rgba(0,122,255,.4);color:#9ec5ff}
+.tbtn.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.zoomer{display:flex;align-items:center;gap:2px;background:var(--s-lowest);border:.5px solid var(--hairline);
+  border-radius:var(--radius);padding:2px;margin-left:auto}
+.zoomer button{width:24px;height:24px;border-radius:3px;display:grid;place-items:center;color:var(--on-var)}
+.zoomer button:hover{background:rgba(255,255,255,.06)}
+.zoomer .val{font-family:var(--mono);font-size:11px;min-width:46px;text-align:center;color:var(--on-var)}
+.canvaswrap{flex:1;position:relative;min-height:0;overflow:hidden}
+#canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#canvas.panning{cursor:grabbing}
+.hud{
+  position:absolute;left:14px;bottom:12px;display:flex;gap:16px;font-family:var(--mono);font-size:10.5px;
+  color:#6a6a70;pointer-events:none;flex-wrap:wrap;max-width:calc(100% - 28px);
+}
+.hud b{color:#8a8a92;font-weight:400}
+
+/* SVG */
+.grid line{stroke:#1e1e21;stroke-width:1}
+.grid .major{stroke:#242428}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.6;transition:stroke .12s ease,opacity .12s ease}
+.wire.fk{stroke:#5b4a86}
+.wire.hot{stroke:var(--blue);stroke-width:2.4;filter:drop-shadow(0 0 4px rgba(0,122,255,.55))}
+.wire.mute{opacity:.12}
+.card .bg{fill:var(--s);stroke:var(--hairline);stroke-width:1}
+.card .hd{fill:var(--s-high)}
+.card.sel .bg{stroke:var(--blue);stroke-width:1.6}
+.card.sel .hd{fill:#1e3255}
+.card.rel .bg{stroke:#5b4a86}
+.card.mute{opacity:.22}
+.card{cursor:grab}
+.card.dragging{cursor:grabbing}
+.card .tname{font-family:var(--ui);font-size:12.5px;font-weight:600;fill:var(--on)}
+.card .tmeta{font-family:var(--mono);font-size:10px;fill:var(--dim)}
+.card .cname{font-family:var(--mono);font-size:11px;fill:var(--on-var)}
+.card .ctype{font-family:var(--mono);font-size:10px;fill:var(--dim)}
+.card .row.hot rect{fill:rgba(0,122,255,.16)}
+.card .badge text{font-family:var(--mono);font-size:8px;font-weight:700}
+.card .pk rect{fill:var(--amber-soft)}.card .pk text{fill:var(--amber)}
+.card .fk rect{fill:var(--purple-soft)}.card .fk text{fill:#a984f0}
+.card .nn{font-family:var(--mono);font-size:9px;fill:#5c5c63}
+.elabel{font-family:var(--mono);font-size:9.5px;fill:#7b7b83}
+.elabel.hot{fill:var(--blue)}
+.focusflag rect{fill:var(--blue)}
+.focusflag text{font-family:var(--mono);font-size:8.5px;font-weight:700;fill:#fff}
+
+/* ---------------------------------------------------------------- inspector */
+.inspector{
+  background:var(--s-low);border-left:.5px solid var(--hairline);display:flex;flex-direction:column;min-height:0;
+}
+.itabs{display:flex;border-bottom:.5px solid var(--hairline);flex:none}
+.itabs button{
+  flex:1;height:38px;font-size:12px;color:var(--dim);display:flex;align-items:center;justify-content:center;gap:7px;
+  border-bottom:2px solid transparent;
+}
+.itabs button.on{color:var(--on);background:var(--s);border-bottom-color:var(--blue)}
+.ibody{overflow-y:auto;flex:1;padding:14px;scrollbar-width:thin}
+.ibody::-webkit-scrollbar{width:9px}
+.ibody::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:9px;border:3px solid var(--s-low)}
+.isec{margin-bottom:18px}
+.isec>.caps{margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.isec>.caps .r{margin-left:auto;font-weight:400;letter-spacing:.02em}
+.panel{background:var(--s);border:.5px solid var(--hairline);border-radius:var(--radius-lg);overflow:hidden}
+.panel+.panel{margin-top:8px}
+.ptitle{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:.5px solid var(--hairline);
+  background:var(--s-high);
+}
+.ptitle .nm{font-family:var(--mono);font-size:12px;font-weight:500}
+.ptitle .tag{margin-left:auto}
+.prow{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 12px;align-items:baseline}
+.prow+.prow{border-top:.5px solid var(--hairline)}
+.prow .k{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.prow .v{font-family:var(--mono);font-size:11.5px;text-align:right;word-break:break-word}
+.map{display:grid;grid-template-columns:1fr 22px 1fr;align-items:center;gap:8px;padding:11px 12px}
+.map .side .caps{margin-bottom:3px}
+.map .side .val{font-family:var(--mono);font-size:11.5px;color:var(--blue-2);word-break:break-all}
+.map .side.r{text-align:right}
+.map .side.r .val{color:#a984f0}
+.map .arr{color:var(--dim);display:grid;place-items:center}
+.tag{
+  font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:999px;font-family:var(--mono);
+  white-space:nowrap;
+}
+.tag.pk{background:var(--amber-soft);color:var(--amber)}
+.tag.fk{background:var(--purple-soft);color:#a984f0}
+.tag.uq{background:rgba(0,122,255,.14);color:#7fb2ff}
+.tag.rls{background:var(--purple-soft);color:#b794f4}
+.tag.ok{background:var(--green-soft);color:var(--green)}
+.tag.warn{background:var(--amber-soft);color:var(--amber)}
+.tag.del{background:rgba(255,69,58,.14);color:#ff8a80}
+.tag.mute{background:var(--s-high);color:var(--dim)}
+.collist{display:flex;flex-direction:column}
+.col{display:flex;align-items:center;gap:7px;height:26px;padding:0 12px;cursor:default}
+.col+.col{border-top:.5px solid rgba(255,255,255,.035)}
+.col:hover{background:rgba(255,255,255,.04)}
+.col.hot{background:var(--blue-soft);box-shadow:inset 2px 0 0 var(--blue)}
+.col .nm{font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col .ty{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+.col .req{font-family:var(--mono);font-size:9px;color:#5c5c63;flex:none}
+.note{
+  font-size:11.5px;line-height:16px;color:var(--on-var);padding:9px 12px;background:var(--s);
+  border:.5px solid var(--hairline);border-left:2px solid var(--hairline-2);border-radius:var(--radius);
+}
+pre.code{
+  margin:0;padding:10px 12px;font-family:var(--mono);font-size:10.5px;line-height:15px;color:var(--on-var);
+  background:var(--s-lowest);overflow-x:auto;white-space:pre-wrap;word-break:break-word;
+}
+pre.code .k{color:#7fb2ff}
+pre.code .s{color:#6fe0b4}
+.chiplist{display:flex;flex-wrap:wrap;gap:5px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:var(--s);
+  border:.5px solid var(--hairline);font-family:var(--mono);font-size:10.5px;color:var(--on-var);cursor:pointer;
+}
+.chip:hover{border-color:var(--blue);color:#9ec5ff}
+.chip .od{font-size:8.5px;color:var(--dim)}
+.empty{color:var(--dim);font-size:11.5px;padding:2px}
+.iact{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:.5px solid var(--hairline);background:var(--s-low);flex:none}
+.iact .primary{
+  height:34px;border-radius:var(--radius);background:#cfe0ff;color:#00285c;font-weight:600;font-size:12px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.iact .primary:hover{background:#e2ebff}
+.iact .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.iact .row2 button{
+  height:30px;border-radius:var(--radius);background:var(--s);border:.5px solid var(--hairline);font-size:11.5px;
+  color:var(--on-var);display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.iact .row2 button:hover{background:var(--s-high)}
+
+/* ---------------------------------------------------------------- statusbar */
+.statusbar{
+  display:flex;align-items:center;gap:0;padding:0 12px;background:var(--s-low);
+  border-top:.5px solid var(--hairline);font-family:var(--mono);font-size:10.5px;color:var(--dim);
+}
+.statusbar .cell{display:flex;align-items:center;gap:6px;padding:0 12px;border-right:.5px solid var(--hairline);height:16px}
+.statusbar .cell:first-child{padding-left:0}
+.statusbar .cell:last-child{border-right:0;margin-left:auto;padding-right:0}
+.statusbar .dot{width:6px;height:6px;border-radius:999px;background:var(--green)}
+.statusbar b{color:var(--on-var);font-weight:400}
+
+/* ---------------------------------------------------------------- dropzone */
+.drop{
+  position:absolute;inset:0;display:grid;place-items:center;background:var(--canvas);z-index:20;padding:24px;
+}
+.drop.hide{display:none}
+.dropinner{
+  width:min(560px,100%);border:1px dashed var(--hairline-2);border-radius:12px;background:var(--s-low);
+  padding:40px 36px;text-align:center;
+}
+.drop.over .dropinner{border-color:var(--blue);background:#16202f}
+.dropinner .mk{width:52px;height:52px;border-radius:12px;display:grid;place-items:center;margin:0 auto 16px;
+  background:linear-gradient(160deg,#2b3b5c,#16202f);border:.5px solid var(--hairline-2)}
+.dropinner h1{font-size:22px;font-weight:600;line-height:28px;margin:0 0 6px;letter-spacing:-.02em}
+.dropinner p{margin:0 auto 20px;color:var(--dim);font-size:12px;line-height:18px;max-width:42ch}
+.dropinner .pick{
+  display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 18px;border-radius:var(--radius);
+  background:var(--blue);color:#fff;font-size:12.5px;font-weight:500;
+}
+.dropinner .pick:hover{background:#0a84ff}
+.dropinner .hint{margin-top:18px;font-family:var(--mono);font-size:10.5px;color:#5c5c63}
+.dropinner .recent{margin-top:14px;font-size:11.5px;color:var(--dim)}
+.dropinner .recent button{color:var(--blue-2);font-family:var(--mono);font-size:11.5px;text-decoration:underline}
+.err{margin-top:14px;color:#ff8a80;font-size:11.5px;font-family:var(--mono)}
+.toast{
+  position:fixed;left:50%;bottom:44px;transform:translateX(-50%);background:#232326;color:var(--on);
+  border:.5px solid rgba(255,255,255,.08);border-radius:var(--radius-lg);padding:9px 16px;font-size:12px;
+  box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .18s ease;
+}
+.toast.on{opacity:1}
+
+
+/* ---------------------------------------------------------------- segnature */
+.card.marked .bg{stroke:var(--green);stroke-width:1.6}
+.card.marked .hd{fill:#17302a}
+.markbar{fill:var(--green)}
+.card:not(.marked) .markbar{display:none}
+.item.marked .kind{background:var(--green);box-shadow:0 0 0 2px rgba(16,185,129,.25)}
+.expmenu{
+  position:absolute;z-index:30;min-width:272px;background:#232326;border:.5px solid rgba(255,255,255,.12);
+  border-radius:var(--radius-lg);box-shadow:0 14px 38px rgba(0,0,0,.5);padding:7px;
+}
+.expmenu[hidden]{display:none}
+.expmenu .mlabel{
+  font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);
+  padding:6px 9px 5px;display:flex;align-items:center;gap:6px;
+}
+.expmenu .mlabel .r{margin-left:auto;font-weight:400;letter-spacing:.02em;text-transform:none;font-size:10.5px}
+.fmtseg{display:flex;gap:3px;background:var(--s-lowest);border-radius:var(--radius);padding:3px;margin:0 4px 6px}
+.fmtseg button{
+  flex:1;height:26px;border-radius:3px;font-size:11.5px;color:var(--on-var);display:flex;align-items:center;
+  justify-content:center;gap:5px;
+}
+.fmtseg button:hover{background:rgba(255,255,255,.07)}
+.fmtseg button.on{background:var(--blue);color:#fff;font-weight:500}
+.mrow{
+  display:flex;align-items:center;gap:10px;width:100%;padding:7px 9px;border-radius:var(--radius);text-align:left;
+  font-size:12.5px;color:var(--on);
+}
+.mrow:hover:not(:disabled){background:var(--blue);color:#fff}
+.mrow:hover:not(:disabled) .sub,.mrow:hover:not(:disabled) .cnt{color:rgba(255,255,255,.75)}
+.mrow:disabled{opacity:.38;cursor:default}
+.mrow .ic{flex:none;color:var(--dim)}
+.mrow:hover:not(:disabled) .ic{color:#fff}
+.mrow .txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mrow .sub{font-size:10.5px;color:var(--dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--dim);flex:none}
+.expmenu .sep{height:.5px;background:rgba(255,255,255,.08);margin:5px 4px}
+.expmenu .hintrow{padding:4px 9px 6px;font-size:10.5px;color:var(--dim);line-height:15px}
+.markchip{
+  display:flex;align-items:center;gap:7px;height:26px;padding:0 5px 0 10px;border-radius:var(--radius);
+  background:var(--green-soft);border:.5px solid rgba(16,185,129,.35);color:#6fe0b4;font-size:11.5px;
+}
+.markchip button{width:18px;height:18px;border-radius:3px;display:grid;place-items:center;color:#6fe0b4}
+.markchip button:hover{background:rgba(255,255,255,.1)}
+
+/* ---------------------------------------------------------------- viste */
+.view{display:none;flex-direction:column;min-height:0;flex:1}
+.view.on{display:flex}
+.navblock{padding:8px 6px 10px;border-bottom:.5px solid var(--hairline);display:flex;flex-direction:column;gap:2px}
+.navitem{
+  display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius);
+  text-align:left;font-size:12.5px;color:var(--on-var);
+}
+.navitem svg{flex:none;color:var(--dim)}
+.navitem:hover{background:rgba(255,255,255,.06)}
+.navitem.on{background:var(--blue);color:#fff;font-weight:500}
+.navitem.on svg{color:#fff}
+.navitem .n{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.navitem.on .n{color:rgba(255,255,255,.8)}
+.pane{overflow-y:auto;flex:1;padding:18px 22px 60px;scrollbar-width:thin}
+.pane::-webkit-scrollbar{width:10px}
+.pane::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:10px;border:3px solid var(--canvas)}
+.pane .wrap{max-width:1100px;margin:0 auto}
+.phead{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.phead h2{font-size:19px;font-weight:600;letter-spacing:-.02em;margin:0 0 3px}
+.phead p{margin:0;color:var(--dim);font-size:12px;max-width:70ch;line-height:17px}
+.phead .right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px}
+@media (max-width:1080px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{
+  background:var(--s);border:.5px solid var(--hairline);border-radius:var(--radius-lg);padding:12px 14px;
+  display:flex;flex-direction:column;gap:2px;
+}
+.tile .tn{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:28px}
+.tile .tl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.tile.crit .tn{color:#ff8a80}.tile.warn .tn{color:var(--amber)}.tile.ok .tn{color:var(--green)}
+.tile.add .tn{color:var(--green)}.tile.del .tn{color:#ff8a80}.tile.mod .tn{color:var(--blue-2)}
+.rule{background:var(--s);border:.5px solid var(--hairline);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden}
+.rule.pass{opacity:.62}
+.rhead{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;user-select:none}
+.rhead:hover{background:var(--s-high)}
+.rhead .tw{color:var(--hairline-2);transition:transform .12s ease;flex:none}
+.rule.closed .tw{transform:rotate(-90deg)}
+.rule.closed .rbody{display:none}
+.rhead .rt{font-size:13px;font-weight:600}
+.rhead .rc{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.rbody{border-top:.5px solid var(--hairline);padding:12px 14px}
+.rwhy{font-size:11.5px;line-height:17px;color:var(--on-var);margin:0 0 10px;max-width:80ch}
+.hits{display:flex;flex-wrap:wrap;gap:5px}
+.hit{
+  display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:var(--radius);background:var(--s-lowest);
+  border:.5px solid var(--hairline);font-family:var(--mono);font-size:11px;color:var(--on-var);cursor:pointer;
+}
+.hit:hover{border-color:var(--blue);color:#9ec5ff}
+.hit .sub{color:var(--dim);font-size:10px}
+.sev{font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:999px;font-family:var(--mono);flex:none}
+.sev.alta{background:rgba(255,69,58,.16);color:#ff8a80}
+.sev.media{background:var(--amber-soft);color:var(--amber)}
+.sev.info{background:rgba(0,122,255,.14);color:#7fb2ff}
+.sev.ok{background:var(--green-soft);color:var(--green)}
+/* diff */
+.slots{display:grid;grid-template-columns:1fr 46px 1fr;gap:10px;align-items:stretch;margin-bottom:20px}
+.slot{
+  background:var(--s);border:1px dashed var(--hairline-2);border-radius:var(--radius-lg);padding:16px;
+  display:flex;flex-direction:column;gap:8px;align-items:flex-start;min-height:112px;
+}
+.slot.filled{border-style:solid;border-color:var(--hairline);background:var(--s-low)}
+.slot.over{border-color:var(--blue);background:#16202f}
+.slot .lab{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.slot .fname{font-family:var(--mono);font-size:12.5px;word-break:break-all}
+.slot .fmeta{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.slot .acts{margin-top:auto;display:flex;gap:6px}
+.slot button.mini{
+  height:26px;padding:0 11px;border-radius:var(--radius);background:var(--s-high);border:.5px solid var(--hairline);
+  font-size:11.5px;color:var(--on-var);
+}
+.slot button.mini:hover{background:#3a3a3c}
+.slot button.mini.accent{background:var(--blue);border-color:var(--blue);color:#fff}
+.slots .vs{display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:11px}
+.dtable{background:var(--s);border:.5px solid var(--hairline);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden}
+.dthead{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none}
+.dthead:hover{background:var(--s-high)}
+.dthead .nm{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.dthead .sum{margin-left:auto;display:flex;gap:6px;font-family:var(--mono);font-size:10.5px}
+.dtable.closed .dtbody{display:none}
+.dtable.closed .tw{transform:rotate(-90deg)}
+.dtbody{border-top:.5px solid var(--hairline)}
+.dline{display:flex;align-items:baseline;gap:9px;padding:6px 14px;font-family:var(--mono);font-size:11.5px}
+.dline+.dline{border-top:.5px solid rgba(255,255,255,.035)}
+.dline .sign{width:11px;flex:none;font-weight:700}
+.dline.add{background:rgba(16,185,129,.07)}.dline.add .sign{color:var(--green)}
+.dline.del{background:rgba(255,69,58,.07)}.dline.del .sign{color:#ff8a80}
+.dline.mod{background:rgba(0,122,255,.06)}.dline.mod .sign{color:var(--blue-2)}
+.dline .was{color:var(--dim)}
+.dline .kind{font-size:9.5px;letter-spacing:.04em;color:var(--dim);text-transform:uppercase}
+.mig{background:var(--s-lowest);border:.5px solid var(--hairline);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px}
+.mighead{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s);border-bottom:.5px solid var(--hairline)}
+.mighead .t{font-size:12.5px;font-weight:600}
+.mighead .acts{margin-left:auto;display:flex;gap:6px}
+.mig pre{margin:0;padding:12px 14px;font-family:var(--mono);font-size:11px;line-height:16.5px;color:var(--on-var);
+  overflow-x:auto;max-height:460px}
+.warnbox{
+  display:flex;gap:10px;align-items:flex-start;background:var(--amber-soft);border:.5px solid rgba(245,158,11,.32);
+  border-radius:var(--radius-lg);padding:11px 13px;margin-bottom:14px;
+}
+.warnbox svg{flex:none;color:var(--amber);margin-top:1px}
+.warnbox p{margin:0;font-size:11.5px;line-height:17px;color:#e8d3a8}
+@media (max-width:760px){.slots{grid-template-columns:1fr;gap:8px}.slots .vs{height:22px}}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:1180px){.body{grid-template-columns:220px minmax(0,1fr) 330px}}
+@media (max-width:920px){
+  .body{grid-template-columns:minmax(0,1fr)}
+  .sidebar,.inspector{display:none}
+  .searchwrap{max-width:none}
+  .brandtext,.crumb{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============================================================ titlebar -->
+  <header class="titlebar">
+    <div class="brand">
+      <div class="brandmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#adc6ff" stroke-width="1.8">
+          <ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/>
+          <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>
+        </svg>
+      </div>
+      <div class="brandtext"><b>Schema Studio</b><span>offline · v1.0</span></div>
+    </div>
+
+    <div class="crumb" id="crumb" hidden>
+      <span class="ico">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>
+        </svg>
+      </span>
+      <span class="file" id="crumbFile">—</span>
+      <span class="sep">/</span>
+      <span class="obj" id="crumbObj">public</span>
+    </div>
+
+    <div class="searchwrap">
+      <span class="ico">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+      </span>
+      <input id="search" type="search" placeholder="Filtra tabelle, colonne, vincoli…" autocomplete="off" spellcheck="false">
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <div class="tbright">
+      <div class="statuspill" id="pill" hidden>
+        <span class="dot"></span>
+        <b>PostgreSQL</b><span id="pillTime">0ms</span>
+      </div>
+      <button class="iconbtn" id="btnOpen" title="Apri un altro file .sql">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2"/>
+        </svg>
+      </button>
+      <button class="iconbtn" id="btnInspector" title="Mostra/nascondi inspector">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================================================================ body -->
+  <div class="body" id="bodyGrid">
+
+    <aside class="sidebar">
+      <div class="navblock">
+        <button class="navitem on" data-view="graph">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            <path d="M10 6.5h4a2 2 0 0 1 2 2V14"/>
+          </svg>
+          Grafo dello schema
+        </button>
+        <button class="navitem" data-view="lint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>
+          </svg>
+          Analisi dello schema
+          <span class="n" id="navLintN"></span>
+        </button>
+        <button class="navitem" data-view="diff">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 3v12a3 3 0 0 0 3 3h6"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/>
+            <path d="M18 7v5"/>
+          </svg>
+          Confronto fra file
+          <span class="n" id="navDiffN"></span>
+        </button>
+      </div>
+      <div class="sbhead">
+        <span class="caps">Navigazione</span>
+        <span class="count" id="sbCount">0 tabelle</span>
+      </div>
+      <div class="sblist" id="sblist"></div>
+      <div class="sbfoot">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+        </svg>
+        <span id="sbFoot">nessuno schema caricato</span>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="view on" id="viewGraph">
+      <div class="toolbar">
+        <div class="seg">
+          <button id="layAuto" class="on" data-layout="layered">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/>
+              <path d="M8.5 7.2 15.6 11M8.5 16.8 15.6 13"/>
+            </svg>
+            Gerarchico
+          </button>
+          <button id="layGroup" data-layout="grouped">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/>
+              <rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>
+            </svg>
+            Per sezione
+          </button>
+        </div>
+        <div class="seg">
+          <button id="wireCurve" class="on" data-wire="curve">Curve</button>
+          <button id="wireOrtho" data-wire="ortho">Ortogonali</button>
+        </div>
+        <button class="tbtn" id="btnGrid" title="Griglia">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+          </svg>
+        </button>
+        <button class="tbtn" id="btnFit" title="Adatta alla finestra (F)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+          </svg>
+          Adatta
+        </button>
+        <button class="tbtn" id="btnRelayout" title="Ricalcola disposizione">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>
+          </svg>
+          Riallinea
+        </button>
+        <button class="tbtn" id="btnExportMenu" aria-haspopup="menu" aria-expanded="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/>
+          </svg>
+          Esporta
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+               style="margin-left:1px;opacity:.6"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <span class="markchip" id="markChip" hidden>
+          <span id="markCount">0 segnate</span>
+          <button id="markClear" title="Togli tutte le segnature">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 5l14 14M19 5 5 19"/></svg>
+          </button>
+        </span>
+        <div class="zoomer">
+          <button id="zOut" title="Riduci">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+          </button>
+          <span class="val" id="zVal">100%</span>
+          <button id="zIn" title="Ingrandisci">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="expmenu" id="expMenu" role="menu" hidden></div>
+
+      <div class="canvaswrap">
+        <svg id="canvas"></svg>
+        <div class="hud" id="hud"></div>
+
+        <div class="drop" id="drop">
+          <div class="dropinner">
+            <div class="mk">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#adc6ff" stroke-width="1.6">
+                <ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/>
+                <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>
+              </svg>
+            </div>
+            <h1>Trascina qui il tuo file .sql</h1>
+            <p>Lo schema viene analizzato in locale, dentro questa pagina: tabelle, colonne, vincoli,
+               chiavi esterne, indici, trigger, viste e policy RLS. Nessun dato esce dal computer.</p>
+            <button class="pick" id="btnPick">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/>
+              </svg>
+              Scegli file…
+            </button>
+            <div class="recent" id="recent" hidden></div>
+            <div class="hint">CREATE TABLE · CREATE INDEX · CREATE VIEW · TRIGGER · POLICY RLS</div>
+            <div class="err" id="err" hidden></div>
+          </div>
+        </div>
+      </div>
+      </div><!-- /viewGraph -->
+
+      <div class="view" id="viewLint"><div class="pane"><div class="wrap" id="lintBody"></div></div></div>
+      <div class="view" id="viewDiff"><div class="pane"><div class="wrap" id="diffBody"></div></div></div>
+    </section>
+
+    <aside class="inspector" id="inspector">
+      <div class="itabs">
+        <button id="tabSchema" class="on" data-tab="schema">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>
+          </svg>
+          Struttura
+        </button>
+        <button id="tabFk" data-tab="fk">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/>
+          </svg>
+          <span id="fkTabLabel">Relazioni</span>
+        </button>
+      </div>
+      <div class="ibody" id="ibody">
+        <p class="empty">Carica uno schema e seleziona una tabella nel grafo o nell'elenco a sinistra.</p>
+      </div>
+      <div class="iact" id="iact" hidden>
+        <button class="primary" id="btnCenter">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          </svg>
+          Centra nel grafo
+        </button>
+        <div class="row2">
+          <button id="btnMark">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21 12 17l-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span id="btnMarkLabel">Segna</span>
+          </button>
+          <button id="btnIsolate">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/><path d="M2 12c3-5 7-7 10-7s7 2 10 7c-3 5-7 7-10 7s-7-2-10-7z"/>
+            </svg>
+            Isola relazioni
+          </button>
+          <button id="btnCopyDdl" style="grid-column:1/-1">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+            </svg>
+            Copia DDL
+          </button>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <!-- =========================================================== statusbar -->
+  <footer class="statusbar">
+    <div class="cell"><span class="dot"></span><span id="stFile">nessun file</span></div>
+    <div class="cell">Tabelle: <b id="stTables">0</b></div>
+    <div class="cell">Colonne: <b id="stCols">0</b></div>
+    <div class="cell">Chiavi esterne: <b id="stFks">0</b></div>
+    <div class="cell">Viste: <b id="stViews">0</b></div>
+    <div class="cell">RLS: <b id="stRls">0</b></div>
+    <div class="cell" id="stSel">nessuna selezione</div>
+  </footer>
+</div>
+
+<input type="file" id="fileInput" accept=".sql,text/plain" hidden>
+<input type="file" id="fileA" accept=".sql,text/plain" hidden>
+<input type="file" id="fileB" accept=".sql,text/plain" hidden>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ===================================================================
+   1. PARSER SQL
+   Porta in JavaScript dello stesso approccio usato lato Python:
+   i commenti vengono "mascherati" (sostituiti con spazi, stessa
+   lunghezza) prima di ogni scansione strutturale, così apostrofi e
+   parentesi che compaiono nei commenti non sballano il conteggio
+   delle parentesi; le descrizioni si rileggono poi dal testo
+   originale agli stessi offset.
+   =================================================================== */
+const Parser = (() => {
+
+  function maskComments(sql){
+    const out = sql.split("");
+    let i = 0, inS = false;
+    while (i < sql.length){
+      const ch = sql[i];
+      if (inS){ if (ch === "'") inS = false; i++; continue; }
+      if (sql.startsWith("$$", i)){ i += 2; continue; }
+      if (ch === "'"){ inS = true; i++; continue; }
+      if (sql.startsWith("--", i)){
+        let j = sql.indexOf("\n", i); if (j < 0) j = sql.length;
+        for (let k = i; k < j; k++) out[k] = " ";
+        i = j; continue;
+      }
+      if (sql.startsWith("/*", i)){
+        let j = sql.indexOf("*/", i + 2); j = j < 0 ? sql.length : j + 2;
+        for (let k = i; k < j; k++) out[k] = sql[k] === "\n" ? "\n" : " ";
+        i = j; continue;
+      }
+      i++;
+    }
+    return out.join("");
+  }
+
+  function matchParens(text, start){
+    let depth = 0, i = start, inS = false;
+    while (i < text.length){
+      const ch = text[i];
+      if (inS){ if (ch === "'") inS = false; }
+      else if (ch === "'") inS = true;
+      else if (ch === "(") depth++;
+      else if (ch === ")"){ depth--; if (!depth) return i; }
+      i++;
+    }
+    return -1;
+  }
+
+  function splitTop(text){
+    const parts = []; let depth = 0, cur = "", inS = false;
+    for (const ch of text){
+      if (inS){ cur += ch; if (ch === "'") inS = false; continue; }
+      if (ch === "'"){ inS = true; cur += ch; }
+      else if (ch === "("){ depth++; cur += ch; }
+      else if (ch === ")"){ depth--; cur += ch; }
+      else if (ch === "," && depth === 0){ parts.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    if (cur.trim()) parts.push(cur);
+    return parts;
+  }
+
+  const clean = s => (s || "").replace(/\s+/g, " ").trim();
+  const unq = s => String(s == null ? "" : s).replace(/"/g, "").trim();
+
+  function splitLineComment(line){
+    let inS = false;
+    for (let i = 0; i < line.length; i++){
+      const ch = line[i];
+      if (inS){ if (ch === "'") inS = false; }
+      else if (ch === "'") inS = true;
+      else if (ch === "-" && line[i+1] === "-") return [line.slice(0, i), line.slice(i + 2)];
+    }
+    return [line, ""];
+  }
+
+  function findSections(sql){
+    const out = [];
+    // forma "-- 7. Titolo" oppure "-- A. Titolo"
+    const re = /^--\s*(\d+|[A-Z])\.\s+(.+?)\s*$/gm; let m;
+    while ((m = re.exec(sql))) if (m[2].trim().length > 2) out.push({ off: m.index, title: m[2].trim() });
+    // forma a banner: riga di commento racchiusa fra due righe "-- ======"
+    const lines = sql.split("\n");
+    const offs = []; let acc = 0;
+    for (const l of lines){ offs.push(acc); acc += l.length + 1; }
+    const isRule = l => /^--\s*[=\-]{10,}\s*$/.test(l);
+    for (let i = 1; i < lines.length - 1; i++){
+      if (!isRule(lines[i - 1]) || !isRule(lines[i + 1])) continue;
+      const body = lines[i].trim();
+      if (!body.startsWith("--")) continue;
+      const title = body.slice(2).trim().replace(/^(?:\d+|[A-Z])\.\s+/, "");
+      if (title.length > 2 && !isRule(body)) out.push({ off: offs[i], title });
+    }
+    out.sort((a, b) => a.off - b.off);
+    // deduplica titoli ripetuti a distanza ravvicinata e assegna un ordinale
+    const seen = [];
+    out.forEach(sx => {
+      const last = seen[seen.length - 1];
+      if (last && Math.abs(last.off - sx.off) < 4 && last.title === sx.title) return;
+      seen.push(sx);
+    });
+    seen.forEach((sx, i) => sx.n = i + 1);
+    return seen;
+  }
+  function sectionFor(sections, off){
+    let cur = null;
+    for (const s of sections){ if (s.off <= off) cur = s; else break; }
+    return cur ? { number: cur.n, title: cur.title } : { number: 0, title: "Generale" };
+  }
+
+  function leadingComment(sql, start){
+    const lines = sql.slice(0, start).split("\n");
+    const buf = [];
+    for (let i = lines.length - 1; i >= 0; i--){
+      const s = lines[i].trim();
+      if (!s){ if (buf.length) break; else continue; }
+      if (s.startsWith("--")){
+        const body = s.slice(2).trim();
+        if (body && /^[=\- ]+$/.test(body)) break;
+        if (/^\d+\.\s/.test(body)) break;
+        if (body) buf.push(body);
+      } else break;
+    }
+    return buf.reverse().join(" ").trim();
+  }
+
+  const TYPE_RE = /^((?:TIMESTAMP\s+WITH\s+TIME\s+ZONE|DOUBLE\s+PRECISION|CHARACTER\s+VARYING|[A-Za-z_]\w*)(?:\s*\([^)]*\))?(?:\s*\[\])?)/i;
+
+  function parseColumn(frag){
+    const f = frag.trim();
+    const m = /^(?:"([^"]+)"|([A-Za-z_]\w*))\s+([\s\S]*)$/.exec(f);
+    if (!m) return null;
+    const rest = m[3].trim();
+    const tm = TYPE_RE.exec(rest);
+    if (!tm) return null;
+    const tail = rest.slice(tm[0].length).trim();
+    const col = {
+      name: m[1] || m[2], type: clean(tm[1]), notNull: false, pk: false, unique: false,
+      default: null, check: null, fk: null, comment: ""
+    };
+    if (/\bNOT\s+NULL\b/i.test(tail)) col.notNull = true;
+    if (/\bPRIMARY\s+KEY\b/i.test(tail)){ col.pk = true; col.notNull = true; }
+    if (/(?:^|[^(])\bUNIQUE\b/i.test(tail)) col.unique = true;
+    const dm = /\bDEFAULT\s+([\s\S]+?)(?=\s+(?:NOT\s+NULL|CHECK|REFERENCES|UNIQUE|PRIMARY)\b|$)/i.exec(tail);
+    if (dm) col.default = clean(dm[1]);
+    const cm = /\bCHECK\s*\(/i.exec(tail);
+    if (cm){
+      const open = cm.index + cm[0].length - 1;
+      const end = matchParens(tail, open);
+      if (end > 0) col.check = clean(tail.slice(open, end + 1));
+    }
+    const fm = /\bREFERENCES\s+([\w."]+)\s*(?:\(\s*"?(\w+)"?\s*\))?/i.exec(tail);
+    if (fm){
+      const od = /ON\s+DELETE\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION)/i.exec(tail);
+      const ou = /ON\s+UPDATE\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION)/i.exec(tail);
+      col.fk = {
+        table: unq(fm[1]), column: unq(fm[2]) || "id",
+        onDelete: od ? clean(od[1]).toUpperCase() : null,
+        onUpdate: ou ? clean(ou[1]).toUpperCase() : null
+      };
+    }
+    return col;
+  }
+
+  function parseTableBody(body){
+    const lines = body.split("\n");
+    const cleanedLines = []; const commentMap = {}; let pending = [];
+    for (const line of lines){
+      const [code, cmt] = splitLineComment(line);
+      if (cmt){
+        const b = cmt.trim();
+        if (b && !/^[=\- ]+$/.test(b)) pending.push(b);
+      }
+      if (code.trim()){
+        commentMap[cleanedLines.length] = pending.join(" ");
+        pending = [];
+        cleanedLines.push(code);
+      } else if (!cmt) pending = [];
+    }
+    const cleaned = cleanedLines.join("\n");
+    const frags = splitTop(cleaned);
+
+    const fragComments = []; let pos = 0;
+    for (const f of frags){
+      let startLine = (cleaned.slice(0, pos).match(/\n/g) || []).length;
+      const lead = f.length - f.replace(/^\n+/, "").length;
+      startLine += (f.slice(0, lead).match(/\n/g) || []).length;
+      fragComments.push(commentMap[startLine] || "");
+      pos += f.length + 1;
+    }
+
+    const columns = [], constraints = [];
+    frags.forEach((frag, idx) => {
+      const f = frag.trim(); if (!f) return;
+      const first = (f.split(/\s+/)[0] || "").toUpperCase();
+      const kinds = { PRIMARY:"PRIMARY KEY", UNIQUE:"UNIQUE", CHECK:"CHECK", FOREIGN:"FOREIGN KEY",
+                      CONSTRAINT:"CONSTRAINT", EXCLUDE:"EXCLUDE" };
+      if (kinds[first]){
+        const item = { kind: kinds[first], definition: clean(f), comment: fragComments[idx] };
+        // "CONSTRAINT nome UNIQUE(...)" va classificato per quello che e',
+        // altrimenti UNIQUE e CHECK con nome esplicito finiscono in un limbo
+        if (item.kind === "CONSTRAINT"){
+          const nm = /^CONSTRAINT\s+([\w"]+)/i.exec(f);
+          if (nm) item.name = unq(nm[1]);
+          if (/\bFOREIGN\s+KEY\b/i.test(f)) item.kind = "FOREIGN KEY";
+          else if (/\bPRIMARY\s+KEY\b/i.test(f)) item.kind = "PRIMARY KEY";
+          else if (/\bUNIQUE\b/i.test(f)) item.kind = "UNIQUE";
+          else if (/\bCHECK\b/i.test(f)) item.kind = "CHECK";
+        }
+        if (item.kind === "FOREIGN KEY"){
+          const fm = /REFERENCES\s+([\w."]+)\s*(?:\(\s*"?(\w+)"?\s*\))?/i.exec(f);
+          const cm = /FOREIGN\s+KEY\s*\(([^)]*)\)/i.exec(f);
+          if (fm) item.fk = { columns: cm ? cm[1].split(",").map(x => unq(clean(x))) : [], table: unq(fm[1]), column: unq(fm[2]) || "id" };
+        }
+        constraints.push(item);
+        return;
+      }
+      const col = parseColumn(f);
+      if (col){ col.comment = fragComments[idx]; columns.push(col); }
+      else constraints.push({ kind: "ALTRO", definition: clean(f), comment: fragComments[idx] });
+    });
+    return { columns, constraints };
+  }
+
+  function scanToSemicolon(text, from){
+    let depth = 0, i = from, inS = false;
+    while (i < text.length){
+      const ch = text[i];
+      if (inS){ if (ch === "'") inS = false; }
+      else if (ch === "'") inS = true;
+      else if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+      else if (ch === ";" && depth === 0) break;
+      i++;
+    }
+    return i;
+  }
+
+  function viewColumns(sqlText){
+    const m = /\bSELECT\b([\s\S]*?)\bFROM\b/i.exec(sqlText);
+    if (!m) return [];
+    return splitTop(m[1]).map(frag => {
+      const f = clean(frag); if (!f) return null;
+      const am = /\bAS\s+("?[\w]+"?)\s*$/i.exec(f);
+      if (am) return { name: am[1].replace(/"/g, ""), expr: clean(f.slice(0, am.index)) };
+      return { name: f.split(".").pop(), expr: f };
+    }).filter(Boolean);
+  }
+
+  function parse(sql){
+    const t0 = performance.now();
+    const msk = maskComments(sql);
+    const sections = findSections(sql);
+    const model = {
+      tables: [], views: [], indexes: [], functions: [], triggers: [], policies: [],
+      extensions: [], notes: [], sections: []
+    };
+
+    const head = /^((?:--.*\n)+)/.exec(sql);
+    if (head){
+      let para = [];
+      for (const line of head[1].split("\n")){
+        const body = line.trim().startsWith("--") ? line.trim().slice(2).trim() : "";
+        if (!body || /^[=\- ]+$/.test(body)){ if (para.length){ model.notes.push(clean(para.join(" "))); para = []; } continue; }
+        para.push(body);
+      }
+      if (para.length) model.notes.push(clean(para.join(" ")));
+    }
+
+    let m;
+    const extRe = /CREATE\s+EXTENSION[^;]*?([\w]+)\s*;/gi;
+    while ((m = extRe.exec(msk))) model.extensions.push(m[1]);
+
+    // tabelle
+    const tblRe = /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."]+)\s*\(/gi;
+    while ((m = tblRe.exec(msk))){
+      const open = m.index + m[0].length - 1;
+      const close = matchParens(msk, open);
+      if (close < 0) continue;
+      const { columns, constraints } = parseTableBody(sql.slice(open + 1, close));
+      model.tables.push({
+        name: m[1].replace(/"/g, ""),
+        section: sectionFor(sections, m.index),
+        comment: leadingComment(sql, m.index),
+        columns, constraints
+      });
+    }
+
+    // indici
+    const idxRe = /\bCREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w"]+)\s+ON\s+([\w."]+)\s*\(/gi;
+    while ((m = idxRe.exec(msk))){
+      const open = m.index + m[0].length - 1;
+      const close = matchParens(msk, open);
+      if (close < 0) continue;
+      const semi = scanToSemicolon(msk, close + 1);
+      const tail = clean(msk.slice(close + 1, semi));
+      const wm = /\bWHERE\b([\s\S]*)$/i.exec(tail);
+      model.indexes.push({
+        name: m[2].replace(/"/g, ""), unique: !!m[1], table: m[3].replace(/"/g, ""),
+        columns: unq(clean(sql.slice(open + 1, close))), where: wm ? clean(wm[1]) : null
+      });
+    }
+
+    // viste
+    const viewRe = /\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+([\w."]+)\s+AS\b/gi;
+    while ((m = viewRe.exec(msk))){
+      const end = scanToSemicolon(msk, m.index + m[0].length);
+      const text = sql.slice(m.index + m[0].length, end).trim();
+      const refs = [...new Set((text.match(/\b(?:FROM|JOIN)\s+([\w.]+)/gi) || [])
+        .map(x => x.replace(/\b(?:FROM|JOIN)\s+/i, "").toLowerCase()))].sort();
+      model.views.push({
+        name: m[1].replace(/"/g, ""), section: sectionFor(sections, m.index),
+        comment: leadingComment(sql, m.index), sql: text, references: refs, columns: viewColumns(text)
+      });
+    }
+
+    // funzioni
+    const fnRe = /\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w."]+)\s*\(([^)]*)\)\s*RETURNS\s+([\w ]+?)\s*AS\s*\$\$([\s\S]*?)\$\$\s*LANGUAGE\s+(\w+)([^;]*);/gi;
+    while ((m = fnRe.exec(sql))){
+      model.functions.push({
+        name: m[1].replace(/"/g, ""), args: clean(m[2]), returns: clean(m[3]),
+        body: m[4].trim(), language: m[5], attrs: clean(m[6]),
+        comment: leadingComment(sql, m.index)
+      });
+    }
+
+    // trigger
+    const trgRe = /\bCREATE\s+TRIGGER\s+([\w"]+)\s+(BEFORE|AFTER|INSTEAD\s+OF)\s+([\s\S]+?)\s+ON\s+([\w."]+)\s+(?:FOR\s+EACH\s+(ROW|STATEMENT)\s+)?EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+([\w."]+)\s*\(/gi;
+    while ((m = trgRe.exec(msk))){
+      model.triggers.push({
+        name: m[1].replace(/"/g, ""), timing: clean(m[2]).toUpperCase(), events: clean(m[3]).toUpperCase(),
+        table: m[4].replace(/"/g, ""), level: (m[5] || "ROW").toUpperCase(), function: m[6].replace(/"/g, ""),
+        comment: leadingComment(sql, m.index)
+      });
+    }
+
+    // RLS: ALTER TABLE ... ENABLE/FORCE
+    const rls = {};
+    const rlsRe = /ALTER\s+TABLE\s+([\w."]+)\s+(ENABLE|FORCE)\s+ROW\s+LEVEL\s+SECURITY/gi;
+    while ((m = rlsRe.exec(msk))){
+      const t = m[1].replace(/"/g, "").toLowerCase();
+      rls[t] = rls[t] || { enable: false, force: false };
+      rls[t][m[2].toUpperCase() === "ENABLE" ? "enable" : "force"] = true;
+    }
+
+    // policy esplicite
+    const polRe = /\bCREATE\s+POLICY\s+([\w"]+)\s+ON\s+([\w."]+)\b/gi;
+    while ((m = polRe.exec(msk))){
+      const end = scanToSemicolon(msk, m.index + m[0].length);
+      const tail = msk.slice(m.index + m[0].length, end);
+      let using = null, wcheck = null;
+      const um = /\bUSING\s*\(/i.exec(tail);
+      if (um){ const o = um.index + um[0].length - 1; const e = matchParens(tail, o); if (e > 0) using = clean(tail.slice(o + 1, e)); }
+      const km = /\bWITH\s+CHECK\s*\(/i.exec(tail);
+      if (km){ const o = km.index + km[0].length - 1; const e = matchParens(tail, o); if (e > 0) wcheck = clean(tail.slice(o + 1, e)); }
+      const tn = m[2].replace(/"/g, "");
+      model.policies.push({ name: m[1].replace(/"/g, ""), table: tn, using, withCheck: wcheck, generated: false,
+                            comment: leadingComment(sql, m.index) });
+      rls[tn.toLowerCase()] = rls[tn.toLowerCase()] || { enable: true, force: false };
+    }
+
+    // policy generate dentro blocchi DO $$ ... FOREACH ... ARRAY[...]
+    const doRe = /DO\s*\$\$([\s\S]*?)\$\$\s*;/gi;
+    while ((m = doRe.exec(sql))){
+      const block = m[1];
+      const am = /ARRAY\s*\[([\s\S]*?)\]/.exec(block);
+      if (!am) continue;
+      const tables = am[1].split(",").map(s => s.trim().replace(/^'|'$/g, "")).filter(Boolean);
+      let using = null, wcheck = null;
+      const pm = /CREATE\s+POLICY[^']*USING\s*\(([\s\S]*?)\)\s*WITH\s+CHECK\s*\(([\s\S]*?)\)'/i.exec(block);
+      if (pm){ using = clean(pm[1]); wcheck = clean(pm[2]); }
+      const nm = /t\s*\|\|\s*'([^']+)'/.exec(block);
+      const suffix = nm ? nm[1] : "_policy";
+      const enable = /ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(block);
+      const force = /FORCE\s+ROW\s+LEVEL\s+SECURITY/i.test(block);
+      for (const t of tables){
+        const k = t.toLowerCase();
+        rls[k] = rls[k] || { enable: false, force: false };
+        rls[k].enable = rls[k].enable || enable;
+        rls[k].force = rls[k].force || force;
+        model.policies.push({ name: t + suffix, table: t, using, withCheck: wcheck, generated: true,
+          comment: "Creata dal blocco DO che applica la stessa policy a tutte le tabelle con store_id." });
+      }
+    }
+
+    // ALTER TABLE: molti dump dichiarano le FK (e parte dei vincoli) dopo le
+    // CREATE TABLE invece che dentro. Senza questo passaggio lo schema
+    // risulterebbe privo di relazioni.
+    const tblIdx = {};
+    model.tables.forEach(t => tblIdx[t.name.toLowerCase()] = t);
+    const altRe = /\bALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?([\w."]+)\s+/gi;
+    while ((m = altRe.exec(msk))){
+      const t = tblIdx[unq(m[1]).toLowerCase()];
+      const end = scanToSemicolon(msk, m.index + m[0].length);
+      if (!t) continue;
+      const stmt = sql.slice(m.index, end);
+
+      const fkm = /ADD\s+(?:CONSTRAINT\s+([\w"]+)\s+)?FOREIGN\s+KEY\s*\(([^)]*)\)\s*REFERENCES\s+([\w."]+)\s*(?:\(([^)]*)\))?/i.exec(stmt);
+      if (fkm){
+        const cols = fkm[2].split(",").map(x => unq(clean(x))).filter(Boolean);
+        const refTable = unq(fkm[3]);
+        const refCols = (fkm[4] || "id").split(",").map(x => unq(clean(x)));
+        const od = /ON\s+DELETE\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION)/i.exec(stmt);
+        const ou = /ON\s+UPDATE\s+(CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION)/i.exec(stmt);
+        const info = {
+          table: refTable, column: refCols[0] || "id",
+          onDelete: od ? clean(od[1]).toUpperCase() : null,
+          onUpdate: ou ? clean(ou[1]).toUpperCase() : null
+        };
+        if (cols.length === 1){
+          const col = t.columns.find(c => c.name === cols[0]);
+          if (col && !col.fk) col.fk = info;
+          else if (!col) t.constraints.push({ kind: "FOREIGN KEY", definition: clean(stmt.replace(/^ALTER\s+TABLE\s+[\w."]+\s+/i, "")), comment: "",
+            fk: { columns: cols, table: refTable, column: info.column } });
+        } else {
+          t.constraints.push({ kind: "FOREIGN KEY", definition: clean(stmt.replace(/^ALTER\s+TABLE\s+[\w."]+\s+/i, "")), comment: "",
+            fk: { columns: cols, table: refTable, column: info.column } });
+        }
+        continue;
+      }
+
+      const ckm = /ADD\s+(?:CONSTRAINT\s+([\w"]+)\s+)?CHECK\s*\(/i.exec(stmt);
+      if (ckm){
+        const open = ckm.index + ckm[0].length - 1;
+        const close = matchParens(stmt, open);
+        t.constraints.push({
+          kind: "CHECK", name: unq(ckm[1] || ""), comment: "",
+          definition: `CHECK ${close > 0 ? clean(stmt.slice(open, close + 1)) : "(…)"}`
+        });
+        continue;
+      }
+
+      const uqm = /ADD\s+(?:CONSTRAINT\s+([\w"]+)\s+)?(UNIQUE|PRIMARY\s+KEY)\s*\(([^)]*)\)/i.exec(stmt);
+      if (uqm){
+        const cols = uqm[3].split(",").map(x => unq(clean(x)));
+        const kind = /PRIMARY/i.test(uqm[2]) ? "PRIMARY KEY" : "UNIQUE";
+        t.constraints.push({ kind, name: unq(uqm[1] || ""), comment: "",
+          definition: `${kind} (${cols.join(", ")})` });
+        continue;
+      }
+
+      const acm = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([\s\S]+)$/i.exec(stmt);
+      if (acm){
+        const col = parseColumn(acm[1].trim());
+        if (col && !t.columns.some(c => c.name === col.name)){
+          col.comment = leadingComment(sql, m.index);
+          t.columns.push(col);
+        }
+      }
+    }
+
+    // derivati
+    const byName = {};
+    model.tables.forEach(t => byName[t.name.toLowerCase()] = t);
+    model.tables.forEach(t => {
+      t.fks = [];
+      t.columns.forEach(c => {
+        if (c.fk) t.fks.push({ column: c.name, refTable: c.fk.table, refColumn: c.fk.column,
+                               onDelete: c.fk.onDelete, onUpdate: c.fk.onUpdate, nullable: !c.notNull });
+      });
+      t.constraints.forEach(con => {
+        if (con.fk) con.fk.columns.forEach(c =>
+          t.fks.push({ column: c, refTable: con.fk.table, refColumn: con.fk.column, onDelete: null, nullable: true }));
+      });
+      t.refBy = [];
+    });
+    model.tables.forEach(t => t.fks.forEach(fk => {
+      const tgt = byName[fk.refTable.toLowerCase()];
+      if (tgt) tgt.refBy.push({ table: t.name, column: fk.column, refColumn: fk.refColumn, onDelete: fk.onDelete });
+    }));
+    model.tables.forEach(t => {
+      t.indexes = model.indexes.filter(i => i.table.toLowerCase() === t.name.toLowerCase());
+      t.triggers = model.triggers.filter(x => x.table.toLowerCase() === t.name.toLowerCase());
+      t.policies = model.policies.filter(p => p.table.toLowerCase() === t.name.toLowerCase());
+      const r = rls[t.name.toLowerCase()];
+      t.rls = { enabled: !!(r && r.enable), forced: !!(r && r.force) };
+      let pk = t.columns.filter(c => c.pk).map(c => c.name);
+      if (!pk.length){
+        for (const con of t.constraints){
+          if (con.kind === "PRIMARY KEY"){
+            const pm = /PRIMARY\s+KEY\s*\(([^)]*)\)/i.exec(con.definition);
+            if (pm) pk = pm[1].split(",").map(x => unq(clean(x)));
+          }
+        }
+      }
+      t.pk = pk;
+      t.columns.forEach(c => { if (pk.includes(c.name)) c.pk = true; });
+    });
+
+    const secMap = {};
+    model.tables.forEach(t => { secMap[t.section.number] = t.section.title; });
+    model.sections = Object.keys(secMap).map(n => ({ number: +n, title: secMap[n] })).sort((a,b) => a.number - b.number);
+
+    model.stats = {
+      tables: model.tables.length,
+      columns: model.tables.reduce((s,t) => s + t.columns.length, 0),
+      fks: model.tables.reduce((s,t) => s + t.fks.length, 0),
+      views: model.views.length,
+      indexes: model.indexes.length,
+      functions: model.functions.length,
+      triggers: model.triggers.length,
+      policies: model.policies.length,
+      rls: model.tables.filter(t => t.rls.enabled).length
+    };
+    model.parseMs = Math.max(1, Math.round(performance.now() - t0));
+    return model;
+  }
+
+  return { parse };
+})();
+
+/* ===================================================================
+   2. DDL — ricostruzione leggibile
+   =================================================================== */
+function renderDdl(t){
+  const lines = t.columns.map(c => {
+    const bits = [c.name, c.type];
+    if (c.pk) bits.push("PRIMARY KEY");
+    if (c.notNull && !c.pk) bits.push("NOT NULL");
+    if (c.default) bits.push("DEFAULT " + c.default);
+    if (c.unique) bits.push("UNIQUE");
+    if (c.fk){
+      let r = `REFERENCES ${c.fk.table}(${c.fk.column})`;
+      if (c.fk.onDelete) r += ` ON DELETE ${c.fk.onDelete}`;
+      bits.push(r);
+    }
+    if (c.check) bits.push("CHECK " + c.check);
+    return "    " + bits.join(" ");
+  }).concat(t.constraints.map(c => "    " + c.definition));
+  return `CREATE TABLE ${t.name} (\n${lines.join(",\n")}\n);`;
+}
+
+const KW = /\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|AND|OR|NOT|NULL|CASE|WHEN|THEN|ELSE|END|GROUP BY|ORDER BY|UNION ALL|UNION|WITH|CREATE|TABLE|VIEW|INDEX|UNIQUE|PRIMARY KEY|FOREIGN KEY|REFERENCES|ON DELETE|CHECK|DEFAULT|NOT NULL|CASCADE|RESTRICT|SET NULL|COALESCE|COUNT|SUM|EXISTS|IN|BETWEEN|IS|DISTINCT|FILTER|TRUE|FALSE)\b/gi;
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+function hl(sql){
+  return esc(sql)
+    .replace(KW, m => `<span class="k">${m}</span>`)
+    .replace(/(&quot;[^&]*?&quot;|'[^']*?')/g, m => `<span class="s">${m}</span>`);
+}
+
+/* ===================================================================
+   3. LAYOUT DEL GRAFO
+   =================================================================== */
+const NS = "http://www.w3.org/2000/svg";
+const ROW_H = 22, HEAD_H = 30, PAD_B = 6, COL_GAP = 120, NODE_GAP = 36;
+
+function measure(t){
+  let longest = t.name.length + 10;
+  t.columns.forEach(c => { longest = Math.max(longest, c.name.length + c.type.length + 10); });
+  const w = Math.max(190, Math.min(340, 22 + longest * 6.6));
+  const h = HEAD_H + t.columns.length * ROW_H + PAD_B;
+  return { w, h };
+}
+
+function layout(model, mode){
+  const byName = {}; model.tables.forEach(t => byName[t.name.toLowerCase()] = t);
+  const nodes = model.tables.map(t => Object.assign({ table: t, x: 0, y: 0 }, measure(t)));
+  const nodeByName = {}; nodes.forEach(n => nodeByName[n.table.name.toLowerCase()] = n);
+
+  const deps = {};
+  model.tables.forEach(t => {
+    deps[t.name] = [...new Set(t.fks
+      .map(f => f.refTable.toLowerCase())
+      .filter(x => byName[x] && x !== t.name.toLowerCase()))];
+  });
+
+  let columns;
+  if (mode === "grouped"){
+    const groups = {};
+    model.tables.forEach(t => {
+      const k = t.section.number;
+      (groups[k] = groups[k] || []).push(t.name);
+    });
+    columns = Object.keys(groups).sort((a,b) => a - b).map(k => groups[k].sort());
+  } else {
+    const level = {}; let pending = new Set(Object.keys(deps)); let guard = 0;
+    while (pending.size && guard++ < 60){
+      for (const n of [...pending]){
+        const d = deps[n].map(x => byName[x].name);
+        if (d.every(x => x in level)){
+          level[n] = 1 + Math.max(-1, ...d.map(x => level[x]));
+        }
+      }
+      [...pending].forEach(n => { if (n in level) pending.delete(n); });
+    }
+    const maxLv = Math.max(0, ...Object.values(level));
+    pending.forEach(n => level[n] = maxLv + 1);
+    const buckets = {};
+    Object.entries(level).forEach(([n, lv]) => (buckets[lv] = buckets[lv] || []).push(n));
+    columns = Object.keys(buckets).sort((a,b) => a - b).map(k => buckets[k].sort());
+
+    // riduzione incroci: baricentro rispetto alla colonna precedente
+    const pos = {}; columns.forEach(col => col.forEach((n, i) => pos[n] = i));
+    for (let pass = 0; pass < 5; pass++){
+      columns.forEach((col, ci) => {
+        if (!ci) return;
+        col.sort((a, b) => {
+          const bary = n => {
+            const d = deps[n].map(x => byName[x].name).filter(x => x in pos);
+            return d.length ? d.reduce((s,x) => s + pos[x], 0) / d.length : pos[n];
+          };
+          return bary(a) - bary(b) || a.localeCompare(b);
+        });
+        col.forEach((n, i) => pos[n] = i);
+      });
+    }
+  }
+
+  let x = 60;
+  const colHeights = columns.map(col =>
+    col.reduce((s, n) => s + nodeByName[n.toLowerCase()].h + NODE_GAP, -NODE_GAP));
+  const tallest = Math.max(...colHeights, 0);
+  columns.forEach((col, ci) => {
+    const wmax = Math.max(...col.map(n => nodeByName[n.toLowerCase()].w));
+    let y = 60 + (tallest - colHeights[ci]) / 2;
+    col.forEach(n => {
+      const node = nodeByName[n.toLowerCase()];
+      node.x = x + (wmax - node.w) / 2;
+      node.y = y;
+      y += node.h + NODE_GAP;
+    });
+    x += wmax + COL_GAP;
+  });
+
+  const edges = [];
+  model.tables.forEach(t => {
+    t.fks.forEach(fk => {
+      const src = nodeByName[t.name.toLowerCase()];
+      const dst = nodeByName[fk.refTable.toLowerCase()];
+      if (!src || !dst || src === dst) return;
+      const srcRow = t.columns.findIndex(c => c.name === fk.column);
+      const dstRow = dst.table.columns.findIndex(c => c.name === fk.refColumn);
+      edges.push({ src, dst, srcRow, dstRow, fk, table: t });
+    });
+  });
+  return { nodes, nodeByName, edges };
+}
+
+function rowY(node, idx){
+  return node.y + HEAD_H + (idx < 0 ? -HEAD_H / 2 : idx * ROW_H + ROW_H / 2);
+}
+
+function wirePath(e, mode){
+  const sy = rowY(e.src, e.srcRow), dy = rowY(e.dst, e.dstRow);
+  const srcRight = e.src.x + e.src.w, dstRight = e.dst.x + e.dst.w;
+  const fromLeft = e.dst.x + e.dst.w / 2 < e.src.x + e.src.w / 2;
+  const x1 = fromLeft ? e.src.x : srcRight;
+  const x2 = fromLeft ? dstRight : e.dst.x;
+  if (mode === "ortho"){
+    const mid = (x1 + x2) / 2;
+    return `M ${x1} ${sy} H ${mid} V ${dy} H ${x2}`;
+  }
+  const d = Math.max(40, Math.abs(x2 - x1) * 0.45) * (fromLeft ? -1 : 1);
+  return `M ${x1} ${sy} C ${x1 + d} ${sy}, ${x2 - d} ${dy}, ${x2} ${dy}`;
+}
+
+/* ===================================================================
+   4. APPLICAZIONE
+   =================================================================== */
+const $ = s => document.querySelector(s);
+const svg = $("#canvas");
+const state = {
+  model: null, nodes: [], edges: [], nodeByName: {},
+  view: { x: 0, y: 0, k: 1 },
+  layoutMode: "layered", wireMode: "curve", grid: true,
+  selected: null, isolate: false, tab: "schema", filter: "", fileName: ""
+};
+
+/* ---------------------------------------------------------- SVG scaffolding */
+let gRoot, gGrid, gWires, gNodes, defs;
+function initSvg(){
+  svg.innerHTML = "";
+  defs = document.createElementNS(NS, "defs");
+  defs.innerHTML = `
+    <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L7 4 L0 7 z" fill="context-stroke"/>
+    </marker>
+    <marker id="arhot" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L7 4 L0 7 z" fill="#007aff"/>
+    </marker>`;
+  svg.appendChild(defs);
+  gGrid = document.createElementNS(NS, "g");
+  gGrid.setAttribute("class", "grid");
+  svg.appendChild(gGrid);
+  gRoot = document.createElementNS(NS, "g");
+  svg.appendChild(gRoot);
+  gWires = document.createElementNS(NS, "g");
+  gNodes = document.createElementNS(NS, "g");
+  gRoot.appendChild(gWires);
+  gRoot.appendChild(gNodes);
+}
+function el(tag, attrs, parent){
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function txt(parent, x, y, cls, content, anchor){
+  const n = el("text", { x, y, class: cls }, parent);
+  if (anchor) n.setAttribute("text-anchor", anchor);
+  n.textContent = content;
+  return n;
+}
+
+/* ---------------------------------------------------------- render */
+function applyView(){
+  const { x, y, k } = state.view;
+  gRoot.setAttribute("transform", `translate(${x} ${y}) scale(${k})`);
+  $("#zVal").textContent = Math.round(k * 100) + "%";
+  drawGrid();
+}
+
+function drawGrid(){
+  gGrid.innerHTML = "";
+  if (!state.grid) return;
+  const r = svg.getBoundingClientRect();
+  const { x, y, k } = state.view;
+  const step = 28 * k;
+  if (step < 7) return;
+  const ox = ((x % step) + step) % step, oy = ((y % step) + step) % step;
+  for (let px = ox; px < r.width; px += step){
+    const major = Math.round((px - x) / (28 * k)) % 5 === 0;
+    el("line", { x1: px, y1: 0, x2: px, y2: r.height, class: major ? "major" : "" }, gGrid);
+  }
+  for (let py = oy; py < r.height; py += step){
+    const major = Math.round((py - y) / (28 * k)) % 5 === 0;
+    el("line", { x1: 0, y1: py, x2: r.width, y2: py, class: major ? "major" : "" }, gGrid);
+  }
+}
+
+function renderGraph(){
+  gWires.innerHTML = ""; gNodes.innerHTML = "";
+
+  state.edges.forEach(e => {
+    const p = el("path", {
+      d: wirePath(e, state.wireMode), class: "wire fk", "marker-end": "url(#ar)",
+      "data-src": e.table.name, "data-dst": e.dst.table.name
+    }, gWires);
+    e.path = p;
+  });
+
+  state.nodes.forEach(n => {
+    const t = n.table;
+    const g = el("g", { class: "card", transform: `translate(${n.x} ${n.y})`, "data-table": t.name }, gNodes);
+    n.g = g;
+    el("rect", { class: "bg", x: 0, y: 0, width: n.w, height: n.h, rx: 7 }, g);
+    el("rect", { class: "markbar", x: 0, y: 7, width: 3, height: n.h - 14 }, g);
+    const hd = el("path", {
+      class: "hd",
+      d: `M0 7 a7 7 0 0 1 7 -7 h${n.w - 14} a7 7 0 0 1 7 7 v${HEAD_H - 7} h${-n.w} z`
+    }, g);
+    const meta = t.columns.length + " col";
+    const metaW = meta.length * 6.2 + 11;
+    const rlsW = t.rls.enabled ? 32 : 0;
+    const nameMax = Math.max(6, Math.floor((n.w - 11 - metaW - rlsW - 8) / 7.1));
+    const shown = t.name.length > nameMax ? t.name.slice(0, nameMax - 1) + "…" : t.name;
+    const tn = txt(g, 11, 19.5, "tname", shown);
+    if (shown !== t.name){
+      const ti = document.createElementNS(NS, "title");
+      ti.textContent = t.name;
+      tn.appendChild(ti);
+    }
+    txt(g, n.w - 11, 19, "tmeta", meta, "end");
+
+    if (t.rls.enabled){
+      const fg = el("g", { class: "focusflag", transform: `translate(${n.w - metaW - 30} 7)` }, g);
+      el("rect", { x: 0, y: 0, width: 26, height: 13, rx: 6.5 }, fg);
+      txt(fg, 13, 9.4, "", "RLS", "middle");
+    }
+
+    t.columns.forEach((c, i) => {
+      const y = HEAD_H + i * ROW_H;
+      const rg = el("g", { class: "row", "data-col": c.name }, g);
+      el("rect", { x: 1, y, width: n.w - 2, height: ROW_H, fill: "transparent" }, rg);
+      let tx = 10;
+      if (c.pk || c.fk){
+        const bg = el("g", { class: "badge " + (c.pk ? "pk" : "fk"), transform: `translate(${tx} ${y + 5.5})` }, rg);
+        el("rect", { x: 0, y: 0, width: 17, height: 11, rx: 3 }, bg);
+        txt(bg, 8.5, 8.2, "", c.pk ? "PK" : "FK", "middle");
+        tx += 22;
+      }
+      txt(rg, tx, y + 14.5, "cname", c.name);
+      const type = c.type.length > 18 ? c.type.slice(0, 17) + "…" : c.type;
+      txt(rg, n.w - 10, y + 14.5, "ctype", type, "end");
+      if (c.notNull && !c.pk) txt(rg, n.w - 10 - type.length * 5.9 - 8, y + 14.5, "nn", "•", "end");
+    });
+  });
+
+  state.edges.forEach(e => {
+    if (e.srcRow >= 0) return;
+  });
+  updateHighlight();
+  updateHud();
+}
+
+function refreshWires(){
+  state.edges.forEach(e => e.path && e.path.setAttribute("d", wirePath(e, state.wireMode)));
+}
+
+function updateHighlight(){
+  const sel = state.selected;
+  const related = new Set();
+  if (sel){
+    related.add(sel.toLowerCase());
+    state.edges.forEach(e => {
+      if (e.table.name.toLowerCase() === sel.toLowerCase()) related.add(e.dst.table.name.toLowerCase());
+      if (e.dst.table.name.toLowerCase() === sel.toLowerCase()) related.add(e.table.name.toLowerCase());
+    });
+  }
+  const f = state.filter.trim().toLowerCase();
+  state.nodes.forEach(n => {
+    const name = n.table.name.toLowerCase();
+    const isSel = sel && name === sel.toLowerCase();
+    const isRel = related.has(name) && !isSel;
+    let mute = false;
+    if (f) mute = !(name.includes(f) || n.table.columns.some(c => c.name.toLowerCase().includes(f)));
+    else if (sel && state.isolate) mute = !related.has(name);
+    n.g.setAttribute("class", "card" + (isSel ? " sel" : "") + (isRel ? " rel" : "")
+      + (state.marked.has(name) ? " marked" : "") + (mute ? " mute" : ""));
+  });
+  state.edges.forEach(e => {
+    const hot = sel && (e.table.name.toLowerCase() === sel.toLowerCase() || e.dst.table.name.toLowerCase() === sel.toLowerCase());
+    let cls = "wire fk";
+    if (hot) cls = "wire hot";
+    else if (sel && state.isolate) cls = "wire mute";
+    else if (f) cls = "wire mute";
+    e.path.setAttribute("class", cls);
+    e.path.setAttribute("marker-end", hot ? "url(#arhot)" : "url(#ar)");
+  });
+}
+
+function updateHud(){
+  const m = state.model; if (!m) return;
+  const sel = state.selected ? `Selezione: ${state.selected}` : "Nessuna selezione";
+  $("#hud").innerHTML =
+    `<span>Entità: <b>${m.stats.tables}</b></span>` +
+    `<span>Relazioni: <b>${state.edges.length}</b></span>` +
+    `<span>Layout: <b>${state.layoutMode === "layered" ? "gerarchico" : "per sezione"}</b></span>` +
+    `<span>${esc(sel)}</span>`;
+}
+
+/* ---------------------------------------------------------- viewport */
+function fit(animate){
+  if (!state.nodes.length) return;
+  const r = svg.getBoundingClientRect();
+  const minX = Math.min(...state.nodes.map(n => n.x)) - 40;
+  const minY = Math.min(...state.nodes.map(n => n.y)) - 40;
+  const maxX = Math.max(...state.nodes.map(n => n.x + n.w)) + 40;
+  const maxY = Math.max(...state.nodes.map(n => n.y + n.h)) + 40;
+  const k = Math.min(r.width / (maxX - minX), r.height / (maxY - minY), 1.4);
+  state.view.k = Math.max(0.08, k);
+  state.view.x = (r.width - (maxX - minX) * state.view.k) / 2 - minX * state.view.k;
+  state.view.y = (r.height - (maxY - minY) * state.view.k) / 2 - minY * state.view.k;
+  applyView();
+}
+
+function centerOn(name, zoom){
+  const n = state.nodeByName[name.toLowerCase()];
+  if (!n) return;
+  const r = svg.getBoundingClientRect();
+  if (zoom) state.view.k = Math.max(state.view.k, 0.85);
+  const k = state.view.k;
+  state.view.x = r.width / 2 - (n.x + n.w / 2) * k;
+  state.view.y = r.height / 2 - (n.y + n.h / 2) * k;
+  applyView();
+}
+
+function zoomAt(factor, cx, cy){
+  const r = svg.getBoundingClientRect();
+  const px = cx == null ? r.width / 2 : cx - r.left;
+  const py = cy == null ? r.height / 2 : cy - r.top;
+  const k0 = state.view.k;
+  const k = Math.min(2.6, Math.max(0.08, k0 * factor));
+  state.view.x = px - (px - state.view.x) * (k / k0);
+  state.view.y = py - (py - state.view.y) * (k / k0);
+  state.view.k = k;
+  applyView();
+}
+
+/* ---------------------------------------------------------- interazioni canvas */
+let pan = null, drag = null;
+svg.addEventListener("pointerdown", ev => {
+  const card = ev.target.closest(".card");
+  if (card){
+    const name = card.dataset.table;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey){ toggleMark(name); return; }
+    select(name);
+    const n = state.nodeByName[name.toLowerCase()];
+    drag = { n, sx: ev.clientX, sy: ev.clientY, ox: n.x, oy: n.y, moved: false };
+    card.classList.add("dragging");
+    svg.setPointerCapture(ev.pointerId);
+    return;
+  }
+  pan = { sx: ev.clientX, sy: ev.clientY, ox: state.view.x, oy: state.view.y };
+  svg.classList.add("panning");
+  svg.setPointerCapture(ev.pointerId);
+});
+svg.addEventListener("pointermove", ev => {
+  if (drag){
+    const k = state.view.k;
+    drag.n.x = drag.ox + (ev.clientX - drag.sx) / k;
+    drag.n.y = drag.oy + (ev.clientY - drag.sy) / k;
+    drag.moved = true;
+    drag.n.g.setAttribute("transform", `translate(${drag.n.x} ${drag.n.y})`);
+    refreshWires();
+    return;
+  }
+  if (pan){
+    state.view.x = pan.ox + (ev.clientX - pan.sx);
+    state.view.y = pan.oy + (ev.clientY - pan.sy);
+    applyView();
+  }
+});
+function endPointer(ev){
+  if (drag){ drag.n.g.classList.remove("dragging"); drag = null; }
+  if (pan){ pan = null; svg.classList.remove("panning"); }
+  try { svg.releasePointerCapture(ev.pointerId); } catch(e){}
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+svg.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  if (ev.ctrlKey || ev.metaKey){
+    zoomAt(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX, ev.clientY);
+  } else {
+    state.view.x -= ev.deltaX;
+    state.view.y -= ev.deltaY;
+    applyView();
+  }
+}, { passive: false });
+
+/* ---------------------------------------------------------- selezione */
+function select(name){
+  state.selected = name || null;
+  state.isolate = state.isolate && !!name;
+  updateHighlight();
+  updateHud();
+  renderSidebarSelection();
+  renderInspector();
+  if (typeof updateMarkUi === "function") updateMarkUi();
+  $("#stSel").textContent = name ? "sel: " + name : "nessuna selezione";
+  $("#crumbObj").textContent = name || (state.model ? "public" : "—");
+}
+
+/* ---------------------------------------------------------- sidebar */
+function renderSidebar(){
+  const m = state.model;
+  const box = $("#sblist");
+  const f = state.filter.trim().toLowerCase();
+  const groups = {};
+  m.tables.forEach(t => {
+    const key = t.section.number + "|" + t.section.title;
+    (groups[key] = groups[key] || []).push(t);
+  });
+  let html = "";
+  Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+    const [, title] = key.split("|");
+    const list = groups[key].slice().sort((a, b) => a.name.localeCompare(b.name))
+      .filter(t => !f || t.name.toLowerCase().includes(f) || t.columns.some(c => c.name.toLowerCase().includes(f)));
+    if (!list.length) return;
+    html += `<div class="secgroup" data-sec="${esc(key)}">
+      <button class="sectitle">
+        <span class="tw"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span>${esc(title.toLowerCase())}</span><span class="n">${list.length}</span>
+      </button><div class="secitems">` +
+      list.map(t => `<button class="item" data-table="${esc(t.name)}">
+        <span class="kind"></span><span class="nm">${esc(t.name)}</span>
+        ${t.rls.enabled ? '<span class="rls">RLS</span>' : ""}
+      </button>`).join("") + `</div></div>`;
+  });
+  const vlist = m.views.filter(v => !f || v.name.toLowerCase().includes(f));
+  if (vlist.length){
+    html += `<div class="secgroup"><button class="sectitle">
+      <span class="tw"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+      <span>viste</span><span class="n">${vlist.length}</span></button><div class="secitems">` +
+      vlist.map(v => `<button class="item view" data-view="${esc(v.name)}">
+        <span class="kind"></span><span class="nm">${esc(v.name)}</span></button>`).join("") + `</div></div>`;
+  }
+  box.innerHTML = html || `<p class="empty" style="padding:12px">Nessun oggetto corrisponde al filtro.</p>`;
+  renderSidebarSelection();
+}
+function renderSidebarSelection(){
+  document.querySelectorAll(".item").forEach(b => {
+    const n = b.dataset.table || b.dataset.view;
+    b.classList.toggle("sel", !!state.selected && n === state.selected);
+    b.classList.toggle("marked", !!n && state.marked.has(n.toLowerCase()));
+  });
+}
+$("#sblist").addEventListener("click", ev => {
+  const title = ev.target.closest(".sectitle");
+  if (title){ title.closest(".secgroup").classList.toggle("closed"); return; }
+  const item = ev.target.closest(".item");
+  if (!item) return;
+  const name = item.dataset.table || item.dataset.view;
+  if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && item.dataset.table){ toggleMark(name); return; }
+  select(name);
+  if (item.dataset.table) centerOn(name, true);
+});
+
+/* ---------------------------------------------------------- inspector */
+function tableByName(n){ return state.model.tables.find(t => t.name.toLowerCase() === String(n).toLowerCase()); }
+function viewByName(n){ return state.model.views.find(v => v.name.toLowerCase() === String(n).toLowerCase()); }
+
+/* Una FK e' "coperta" se esiste un indice, un vincolo UNIQUE o la PK che
+   parte da quella colonna: Postgres crea l'indice implicito per PK e UNIQUE,
+   e un indice composito serve anche le ricerche sulla sua prima colonna. */
+function fkIndexed(t, colName){
+  const firstOf = list => list.split(",")[0].trim().replace(/["'`]/g, "");
+  if (t.pk[0] === colName) return "PK";
+  if (t.indexes.some(i => firstOf(i.columns) === colName && !i.where)) return "indice";
+  if (t.columns.some(c => c.name === colName && c.unique)) return "UNIQUE";
+  for (const con of t.constraints){
+    if (con.kind !== "UNIQUE" && con.kind !== "PRIMARY KEY") continue;
+    const mm = /(?:UNIQUE|PRIMARY\s+KEY)\s*\(([^)]*)\)/i.exec(con.definition);
+    if (mm && firstOf(mm[1]) === colName) return con.kind === "UNIQUE" ? "UNIQUE" : "PK";
+  }
+  const partial = t.indexes.find(i => firstOf(i.columns) === colName && i.where);
+  if (partial) return "parziale";
+  return null;
+}
+
+function odTag(od){
+  const v = od || "NO ACTION";
+  const cls = v === "CASCADE" ? "del" : v === "RESTRICT" ? "uq" : v.startsWith("SET") ? "mute" : "mute";
+  return `<span class="tag ${cls}">${esc(v)}</span>`;
+}
+
+function renderInspector(){
+  const body = $("#ibody");
+  const acts = $("#iact");
+  if (!state.model || !state.selected){
+    body.innerHTML = `<p class="empty">Seleziona una tabella nel grafo o nell'elenco a sinistra.</p>`;
+    acts.hidden = true;
+    $("#fkTabLabel").textContent = "Relazioni";
+    return;
+  }
+  const v = viewByName(state.selected);
+  if (v){ renderViewInspector(v); acts.hidden = true; return; }
+  const t = tableByName(state.selected);
+  if (!t){ body.innerHTML = `<p class="empty">Oggetto non trovato.</p>`; acts.hidden = true; return; }
+  acts.hidden = false;
+  $("#fkTabLabel").textContent = `Relazioni (${t.fks.length + t.refBy.length})`;
+  body.innerHTML = state.tab === "schema" ? schemaTab(t) : fkTab(t);
+}
+
+function schemaTab(t){
+  const checks = t.constraints.filter(c => c.kind === "CHECK");
+  const others = t.constraints.filter(c => c.kind !== "CHECK");
+  let h = "";
+
+  const secLabel = t.section.title ? (t.section.title.length > 26 ? t.section.title.slice(0,25).toLowerCase() + "…" : t.section.title.toLowerCase()) : "—";
+  h += `<div class="isec"><div class="caps">Entità <span class="r">${esc(secLabel)}</span></div>
+    <div class="panel">
+      <div class="ptitle"><span class="nm">${esc(t.name)}</span>
+        ${t.rls.enabled ? `<span class="tag rls">${t.rls.forced ? "RLS FORCE" : "RLS"}</span>` : ""}</div>
+      <div class="prow"><span class="k">Chiave primaria</span><span class="v">${t.pk.length ? esc(t.pk.join(", ")) : "—"}</span></div>
+      <div class="prow"><span class="k">Colonne</span><span class="v">${t.columns.length}</span></div>
+      <div class="prow"><span class="k">FK uscenti / entranti</span><span class="v">${t.fks.length} / ${t.refBy.length}</span></div>
+      <div class="prow"><span class="k">Indici</span><span class="v">${t.indexes.length}</span></div>
+      <div class="prow"><span class="k">Trigger</span><span class="v">${t.triggers.length}</span></div>
+    </div></div>`;
+
+  if (t.comment) h += `<div class="isec"><div class="caps">Nota dello schema</div><div class="note">${esc(t.comment)}</div></div>`;
+
+  h += `<div class="isec"><div class="caps">Colonne <span class="r">${t.columns.length}</span></div>
+    <div class="panel"><div class="collist">` +
+    t.columns.map(c => `<div class="col" data-col="${esc(c.name)}" title="${esc(c.comment || "")}">
+      ${c.pk ? '<span class="tag pk">PK</span>' : c.fk ? '<span class="tag fk">FK</span>' : ""}
+      <span class="nm">${esc(c.name)}</span>
+      ${c.notNull ? '<span class="req">NN</span>' : ""}
+      <span class="ty">${esc(c.type)}</span>
+    </div>`).join("") + `</div></div></div>`;
+
+  const withNotes = t.columns.filter(c => c.comment);
+  if (withNotes.length){
+    h += `<div class="isec"><div class="caps">Note sulle colonne</div>` +
+      withNotes.map(c => `<div class="note" style="margin-bottom:6px">
+        <b class="mono" style="color:var(--on)">${esc(c.name)}</b> — ${esc(c.comment)}</div>`).join("") + `</div>`;
+  }
+
+  const withDefaults = t.columns.filter(c => c.default);
+  if (withDefaults.length){
+    h += `<div class="isec"><div class="caps">Valori di default</div><div class="panel">` +
+      withDefaults.map(c => `<div class="prow"><span class="k">${esc(c.name)}</span>
+        <span class="v">${esc(c.default)}</span></div>`).join("") + `</div></div>`;
+  }
+
+  const colChecks = t.columns.filter(c => c.check);
+  if (colChecks.length || checks.length){
+    h += `<div class="isec"><div class="caps">Vincoli CHECK <span class="r">${colChecks.length + checks.length}</span></div>` +
+      colChecks.map(c => `<div class="panel">
+        <div class="ptitle"><span class="nm">${esc(c.name)}</span><span class="tag ok">colonna</span></div>
+        <pre class="code">${hl(c.check)}</pre></div>`).join("") +
+      checks.map(c => `<div class="panel">
+        <div class="ptitle"><span class="nm">check di tabella</span><span class="tag ok">tabella</span></div>
+        <pre class="code">${hl(c.definition)}</pre></div>`).join("") + `</div>`;
+  }
+
+  if (others.length){
+    h += `<div class="isec"><div class="caps">Altri vincoli</div><div class="panel">` +
+      others.map(c => `<pre class="code">${hl(c.definition)}</pre>`).join("") + `</div></div>`;
+  }
+
+  if (t.indexes.length){
+    h += `<div class="isec"><div class="caps">Indici <span class="r">${t.indexes.length}</span></div>` +
+      t.indexes.map(i => `<div class="panel">
+        <div class="ptitle"><span class="nm">${esc(i.name)}</span>${i.unique ? '<span class="tag uq">UNIQUE</span>' : ""}</div>
+        <div class="prow"><span class="k">Colonne</span><span class="v">${esc(i.columns)}</span></div>
+        ${i.where ? `<div class="prow"><span class="k">Parziale</span><span class="v">${esc(i.where)}</span></div>` : ""}
+      </div>`).join("") + `</div>`;
+  }
+
+  if (t.triggers.length){
+    h += `<div class="isec"><div class="caps">Trigger <span class="r">${t.triggers.length}</span></div>` +
+      t.triggers.map(x => `<div class="panel">
+        <div class="ptitle"><span class="nm">${esc(x.name)}</span><span class="tag mute">${esc(x.timing)}</span></div>
+        <div class="prow"><span class="k">Eventi</span><span class="v">${esc(x.events)}</span></div>
+        <div class="prow"><span class="k">Livello</span><span class="v">FOR EACH ${esc(x.level)}</span></div>
+        <div class="prow"><span class="k">Funzione</span><span class="v">${esc(x.function)}()</span></div>
+      </div>`).join("") + `</div>`;
+  }
+
+  if (t.policies.length){
+    h += `<div class="isec"><div class="caps">Row-Level Security <span class="r">${t.policies.length}</span></div>` +
+      t.policies.map(p => `<div class="panel">
+        <div class="ptitle"><span class="nm">${esc(p.name)}</span>
+          ${p.generated ? '<span class="tag mute">blocco DO</span>' : ""}</div>
+        ${p.using ? `<pre class="code"><span class="k">USING</span> (${hl(p.using)})</pre>` : ""}
+        ${p.withCheck ? `<pre class="code"><span class="k">WITH CHECK</span> (${hl(p.withCheck)})</pre>` : ""}
+      </div>`).join("") + `</div>`;
+  }
+
+  h += `<div class="isec"><div class="caps">DDL ricostruito</div>
+    <div class="panel"><pre class="code">${hl(renderDdl(t))}</pre></div></div>`;
+  return h;
+}
+
+function fkTab(t){
+  let h = "";
+  h += `<div class="isec"><div class="caps">Chiavi esterne uscenti <span class="r">${t.fks.length}</span></div>`;
+  if (!t.fks.length) h += `<p class="empty">Questa tabella non referenzia nessuna altra tabella.</p>`;
+  t.fks.forEach(fk => {
+    const col = t.columns.find(c => c.name === fk.column) || {};
+    const target = tableByName(fk.refTable);
+    h += `<div class="panel">
+      <div class="ptitle"><span class="nm">${esc(t.name)}.${esc(fk.column)}</span>
+        <span class="tag ${fk.nullable ? "mute" : "ok"}">${fk.nullable ? "opzionale" : "obbligatoria"}</span></div>
+      <div class="map">
+        <div class="side"><div class="caps">${esc(t.name)}</div><div class="val">${esc(fk.column)}</div></div>
+        <div class="arr"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></div>
+        <div class="side r"><div class="caps">${esc(fk.refTable)}</div><div class="val">${esc(fk.refColumn)}</div></div>
+      </div>
+      <div class="prow"><span class="k">Cardinalità</span><span class="v">Molti a uno (N : 1)</span></div>
+      <div class="prow"><span class="k">Tipo colonna</span><span class="v">${esc(col.type || "—")}</span></div>
+      <div class="prow"><span class="k">On delete</span><span class="v">${odTag(fk.onDelete)}</span></div>
+      <div class="prow"><span class="k">On update</span><span class="v">${odTag(fk.onUpdate)}</span></div>
+      <div class="prow"><span class="k">Indice sulla colonna</span><span class="v">${(() => {
+        const cov = fkIndexed(t, fk.column);
+        if (!cov) return '<span class="tag warn">assente</span>';
+        if (cov === "indice") return '<span class="tag ok">presente</span>';
+        if (cov === "parziale") return '<span class="tag warn">solo parziale</span>';
+        return `<span class="tag ok">implicito (${cov})</span>`;
+      })()}</span></div>
+      ${target ? `<div class="prow"><span class="k">Entità di destinazione</span><span class="v">${target.columns.length} colonne</span></div>` : ""}
+    </div>`;
+  });
+  h += `</div>`;
+
+  const inc = {};
+  t.refBy.forEach(r => { (inc[r.table] = inc[r.table] || []).push(r); });
+  h += `<div class="isec"><div class="caps">Referenziata da <span class="r">${Object.keys(inc).length} tabelle</span></div>`;
+  if (!t.refBy.length) h += `<p class="empty">Nessuna tabella punta a questa.</p>`;
+  Object.keys(inc).sort().forEach(name => {
+    h += `<div class="panel"><div class="ptitle"><span class="nm">${esc(name)}</span>
+      <button class="tag uq jump" data-jump="${esc(name)}">apri</button></div>` +
+      inc[name].map(r => `<div class="prow"><span class="k">${esc(r.column)} →</span>
+        <span class="v">${esc(r.refColumn)} ${odTag(r.onDelete)}</span></div>`).join("") + `</div>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderViewInspector(v){
+  $("#fkTabLabel").textContent = `Dipendenze (${v.references.length})`;
+  const body = $("#ibody");
+  if (state.tab === "fk"){
+    body.innerHTML = `<div class="isec"><div class="caps">Tabelle lette dalla vista</div>
+      <div class="chiplist">${v.references.map(r => `<span class="chip jump" data-jump="${esc(r)}">${esc(r)}</span>`).join("")}</div></div>
+      <div class="isec"><div class="caps">Definizione</div><div class="panel"><pre class="code">${hl(v.sql)}</pre></div></div>`;
+    return;
+  }
+  body.innerHTML = `<div class="isec"><div class="caps">Vista</div>
+      <div class="panel"><div class="ptitle"><span class="nm">${esc(v.name)}</span><span class="tag ok">VIEW</span></div>
+      <div class="prow"><span class="k">Colonne esposte</span><span class="v">${v.columns.length}</span></div>
+      <div class="prow"><span class="k">Tabelle lette</span><span class="v">${v.references.length}</span></div></div></div>` +
+    (v.comment ? `<div class="isec"><div class="caps">Nota</div><div class="note">${esc(v.comment)}</div></div>` : "") +
+    `<div class="isec"><div class="caps">Colonne</div><div class="panel"><div class="collist">` +
+      v.columns.map(c => `<div class="col"><span class="nm">${esc(c.name)}</span>
+        <span class="ty">${esc(c.expr.length > 28 ? c.expr.slice(0, 27) + "…" : c.expr)}</span></div>`).join("") +
+    `</div></div></div>
+    <div class="isec"><div class="caps">Definizione</div><div class="panel"><pre class="code">${hl(v.sql)}</pre></div></div>`;
+}
+
+$("#ibody").addEventListener("click", ev => {
+  const jump = ev.target.closest("[data-jump]");
+  if (jump){ select(jump.dataset.jump); centerOn(jump.dataset.jump, true); return; }
+  const col = ev.target.closest(".col");
+  if (col && col.dataset.col) highlightColumn(col.dataset.col);
+});
+
+function highlightColumn(colName){
+  document.querySelectorAll("#ibody .col").forEach(c => c.classList.toggle("hot", c.dataset.col === colName));
+  const n = state.selected && state.nodeByName[state.selected.toLowerCase()];
+  if (!n) return;
+  n.g.querySelectorAll(".row").forEach(r => r.classList.toggle("hot", r.dataset.col === colName));
+}
+
+/* ---------------------------------------------------------- caricamento */
+function loadSql(text, name){
+  const err = $("#err");
+  try {
+    const model = Parser.parse(text);
+    if (!model.tables.length){
+      err.hidden = false;
+      err.textContent = "Nessun CREATE TABLE trovato in questo file.";
+      return;
+    }
+    err.hidden = true;
+    state.model = model;
+    state.fileName = name || "schema.sql";
+    state.selected = null;
+    state.filter = "";
+    $("#search").value = "";
+    buildLayout();
+    renderSidebar();
+    fit();
+    renderInspector();
+
+    $("#drop").classList.add("hide");
+    $("#crumb").hidden = false;
+    $("#pill").hidden = false;
+    $("#crumbFile").textContent = state.fileName;
+    $("#crumbObj").textContent = "public";
+    $("#pillTime").textContent = model.parseMs + "ms";
+    $("#sbCount").textContent = model.stats.tables + " tabelle";
+    $("#sbFoot").textContent = `${model.stats.indexes} indici · ${model.stats.triggers} trigger`;
+    $("#stFile").textContent = state.fileName;
+    $("#stTables").textContent = model.stats.tables;
+    $("#stCols").textContent = model.stats.columns;
+    $("#stFks").textContent = model.stats.fks;
+    $("#stViews").textContent = model.stats.views;
+    $("#stRls").textContent = model.stats.rls;
+    $("#stSel").textContent = "nessuna selezione";
+    const issues = lintRules(model).filter(r => r.sev !== "info").reduce((n, r) => n + r.hits.length, 0);
+    $("#navLintN").textContent = issues || "";
+    if (state.view2 === "lint") renderLint();
+    if (state.view2 === "diff") renderDiff();
+    toast(`${model.stats.tables} tabelle e ${model.stats.fks} relazioni analizzate in ${model.parseMs}ms`);
+    remember(text, state.fileName);
+  } catch (e){
+    err.hidden = false;
+    err.textContent = "Errore nell'analisi del file: " + e.message;
+    console.error(e);
+  }
+}
+
+function buildLayout(){
+  const L = layout(state.model, state.layoutMode);
+  state.nodes = L.nodes; state.edges = L.edges; state.nodeByName = L.nodeByName;
+  initSvg();
+  applyView();
+  renderGraph();
+}
+
+function remember(text, name){
+  try {
+    if (text.length < 3_000_000){
+      localStorage.setItem("schemastudio:sql", text);
+      localStorage.setItem("schemastudio:name", name);
+    }
+  } catch(e){ /* quota o storage disabilitato: pazienza */ }
+}
+function showRecent(){
+  try {
+    const name = localStorage.getItem("schemastudio:name");
+    if (!name) return;
+    const box = $("#recent");
+    box.hidden = false;
+    box.innerHTML = `Ultimo file aperto: <button id="btnRecent">${esc(name)}</button>`;
+    $("#btnRecent").addEventListener("click", () => {
+      const sql = localStorage.getItem("schemastudio:sql");
+      if (sql) loadSql(sql, name);
+    });
+  } catch(e){}
+}
+
+function readFile(file){
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => loadSql(String(rd.result), file.name);
+  rd.onerror = () => { $("#err").hidden = false; $("#err").textContent = "Impossibile leggere il file."; };
+  rd.readAsText(file);
+}
+
+const drop = $("#drop");
+["dragenter", "dragover"].forEach(t => document.addEventListener(t, ev => {
+  ev.preventDefault();
+  if (!ev.dataTransfer || ![...ev.dataTransfer.types].includes("Files")) return;
+  drop.classList.remove("hide"); drop.classList.add("over");
+}));
+["dragleave", "drop"].forEach(t => document.addEventListener(t, ev => {
+  ev.preventDefault();
+  if (t === "dragleave" && ev.relatedTarget) return;
+  drop.classList.remove("over");
+  if (t === "dragleave" && state.model) drop.classList.add("hide");
+}));
+document.addEventListener("drop", ev => {
+  ev.preventDefault();
+  const f = ev.dataTransfer && ev.dataTransfer.files[0];
+  if (f) readFile(f); else if (state.model) drop.classList.add("hide");
+});
+$("#btnPick").addEventListener("click", () => $("#fileInput").click());
+$("#btnOpen").addEventListener("click", () => $("#fileInput").click());
+$("#fileInput").addEventListener("change", ev => readFile(ev.target.files[0]));
+
+/* ---------------------------------------------------------- toolbar */
+document.querySelectorAll("[data-layout]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-layout]").forEach(x => x.classList.toggle("on", x === b));
+  state.layoutMode = b.dataset.layout;
+  if (state.model){ buildLayout(); fit(); updateHighlight(); }
+}));
+document.querySelectorAll("[data-wire]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-wire]").forEach(x => x.classList.toggle("on", x === b));
+  state.wireMode = b.dataset.wire;
+  refreshWires();
+}));
+$("#btnGrid").addEventListener("click", () => {
+  state.grid = !state.grid;
+  $("#btnGrid").classList.toggle("on", state.grid);
+  drawGrid();
+});
+$("#btnGrid").classList.add("on");
+$("#btnFit").addEventListener("click", () => fit());
+$("#btnRelayout").addEventListener("click", () => { if (state.model){ buildLayout(); fit(); updateHighlight(); toast("Disposizione ricalcolata"); } });
+$("#zIn").addEventListener("click", () => zoomAt(1.15));
+$("#zOut").addEventListener("click", () => zoomAt(1 / 1.15));
+$("#btnInspector").addEventListener("click", () => {
+  const g = $("#bodyGrid");
+  g.classList.toggle("noinspector");
+  state.inspectorWanted = !g.classList.contains("noinspector");
+  $("#inspector").style.display = g.classList.contains("noinspector") ? "none" : "";
+  $("#btnInspector").classList.toggle("on", !g.classList.contains("noinspector"));
+  requestAnimationFrame(drawGrid);
+});
+$("#btnInspector").classList.add("on");
+$("#btnCenter").addEventListener("click", () => state.selected && centerOn(state.selected, true));
+$("#btnIsolate").addEventListener("click", () => {
+  state.isolate = !state.isolate;
+  updateHighlight();
+  toast(state.isolate ? "Mostrate solo le relazioni dirette" : "Mostrato l'intero schema");
+});
+$("#btnCopyDdl").addEventListener("click", async () => {
+  const t = tableByName(state.selected); if (!t) return;
+  const ddl = renderDdl(t);
+  try { await navigator.clipboard.writeText(ddl); toast("DDL copiato negli appunti"); }
+  catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = ddl; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("DDL copiato negli appunti"); } catch(_){ toast("Copia non riuscita"); }
+    ta.remove();
+  }
+});
+
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  state.tab = b.dataset.tab;
+  renderInspector();
+}));
+
+$("#search").addEventListener("input", ev => {
+  state.filter = ev.target.value;
+  if (state.model){ renderSidebar(); updateHighlight(); }
+});
+$("#search").addEventListener("keydown", ev => {
+  if (ev.key === "Enter"){
+    const first = document.querySelector(".item");
+    if (first){ const n = first.dataset.table || first.dataset.view; select(n); if (first.dataset.table) centerOn(n, true); }
+  }
+  if (ev.key === "Escape"){ ev.target.value = ""; state.filter = ""; if (state.model){ renderSidebar(); updateHighlight(); } ev.target.blur(); }
+});
+
+/* ---------------------------------------------------------- segnature */
+state.marked = new Set();
+
+function toggleMark(name){
+  const k = String(name).toLowerCase();
+  if (state.marked.has(k)) state.marked.delete(k); else state.marked.add(k);
+  updateMarkUi();
+  updateHighlight();
+  renderSidebarSelection();
+}
+function updateMarkUi(){
+  const n = state.marked.size;
+  $("#markChip").hidden = !n;
+  $("#markCount").textContent = n === 1 ? "1 segnata" : n + " segnate";
+  const lab = $("#btnMarkLabel");
+  if (lab) lab.textContent = state.selected && state.marked.has(state.selected.toLowerCase()) ? "Togli segno" : "Segna";
+}
+$("#markClear").addEventListener("click", () => { state.marked.clear(); updateMarkUi(); updateHighlight(); renderSidebarSelection(); });
+$("#btnMark").addEventListener("click", () => { if (state.selected) toggleMark(state.selected); });
+
+/* ---------------------------------------------------------- export PNG / SVG */
+function neighboursOf(names){
+  const out = new Set(names);
+  state.edges.forEach(e => {
+    const a = e.table.name.toLowerCase(), b = e.dst.table.name.toLowerCase();
+    if (names.has(a)) out.add(b);
+    if (names.has(b)) out.add(a);
+  });
+  return out;
+}
+
+function exportScopeSet(scope){
+  const all = new Set(state.nodes.map(n => n.table.name.toLowerCase()));
+  const marked = new Set(state.marked);
+  const sel = state.selected ? new Set([state.selected.toLowerCase()]) : new Set();
+  let set, label;
+  if (scope === "marked"){
+    if (!marked.size) return null;
+    set = marked; label = "segnate";
+  } else if (scope === "marked-rel"){
+    if (!marked.size) return null;
+    set = neighboursOf(marked); label = "segnate + vicine";
+  } else if (scope === "sel-rel"){
+    if (!sel.size) return null;
+    set = neighboursOf(sel); label = "relazioni dirette";
+  } else {
+    set = all; label = "schema completo";
+  }
+  set = new Set([...set].filter(x => all.has(x)));
+  return { set, label };
+}
+
+const EXPORT_STYLE = `
+  text{font-family:-apple-system,"Segoe UI",Inter,sans-serif}
+  .wire{fill:none;stroke:#4a4a4f;stroke-width:1.6}
+  .wire.fk{stroke:#7a66ab}
+  .card .bg{fill:#1f1f21;stroke:#37373b}
+  .card .hd{fill:#2a2a2c}
+  .card.marked .bg{stroke:#10b981;stroke-width:1.6}
+  .card.sel .bg{stroke:#007aff;stroke-width:1.8}
+  .card.sel .hd{fill:#1e3255}
+  .card.marked .hd{fill:#17302a}
+  .markbar{fill:#10b981}
+  .card:not(.marked) .markbar{display:none}
+  .card .tname{font-size:12.5px;font-weight:600;fill:#e4e2e4}
+  .card .tmeta,.card .ctype{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;fill:#9a9aa1}
+  .card .cname{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;fill:#c8cddc}
+  .card .nn{font-family:ui-monospace,monospace;font-size:9px;fill:#6a6a71}
+  .badge text{font-family:ui-monospace,monospace;font-size:8px;font-weight:700}
+  .pk rect{fill:#3a2f19}.pk text{fill:#f5b342}
+  .fk rect{fill:#2b2340}.fk text{fill:#b391f2}
+  .focusflag rect{fill:#007aff}
+  .focusflag text{font-family:ui-monospace,monospace;font-size:8.5px;font-weight:700;fill:#fff}
+  .elabel{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;fill:#9a9aa1}
+  .cap{font-size:13px;font-weight:600;fill:#e4e2e4}
+  .capsub{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;fill:#8a8a92}
+`;
+
+
+/* Ricompatta le tabelle scelte in una disposizione locale: senza questo
+   l'immagine erediterebbe le posizioni del grafo completo e verrebbe
+   enorme e quasi tutta vuota. */
+function compactLayout(nodes, edges, gapX){
+  const key = n => n.table.name.toLowerCase();
+  const inSet = new Set(nodes.map(key));
+  const deps = {};
+  nodes.forEach(n => deps[key(n)] = new Set());
+  edges.forEach(e => {
+    const a = e.table.name.toLowerCase(), b = e.dst.table.name.toLowerCase();
+    if (inSet.has(a) && inSet.has(b) && a !== b) deps[a].add(b);
+  });
+  const level = {}; let pending = new Set(Object.keys(deps)), guard = 0;
+  while (pending.size && guard++ < 40){
+    for (const n of [...pending]){
+      const d = [...deps[n]];
+      if (d.every(x => x in level)) level[n] = 1 + Math.max(-1, ...d.map(x => level[x]));
+    }
+    [...pending].forEach(n => { if (n in level) pending.delete(n); });
+  }
+  const maxLv = Math.max(0, ...Object.values(level));
+  pending.forEach(n => level[n] = maxLv + 1);
+
+  const cols = {};
+  nodes.forEach(n => (cols[level[key(n)]] = cols[level[key(n)]] || []).push(n));
+  const lvs = Object.keys(cols).map(Number).sort((a, b) => a - b);
+  const GAP_X = gapX || 110, GAP_Y = 34;
+  const heights = lvs.map(lv => cols[lv].reduce((s, n) => s + n.h + GAP_Y, -GAP_Y));
+  const tallest = Math.max(...heights, 0);
+  const pos = {};
+  let x = 0;
+  lvs.forEach((lv, i) => {
+    const wmax = Math.max(...cols[lv].map(n => n.w));
+    let y = (tallest - heights[i]) / 2;
+    cols[lv].sort((a, b) => a.table.name.localeCompare(b.table.name)).forEach(n => {
+      pos[key(n)] = { x: x + (wmax - n.w) / 2, y };
+      y += n.h + GAP_Y;
+    });
+    x += wmax + GAP_X;
+  });
+  return pos;
+}
+
+function buildExportSvg(scope){
+  const picked = exportScopeSet(scope);
+  if (!picked) return null;
+  const { set, label } = picked;
+  const nodes = state.nodes.filter(n => set.has(n.table.name.toLowerCase()));
+  if (!nodes.length) return null;
+
+  const keep = new Map();
+  const subEdges = state.edges.filter(e =>
+    set.has(e.table.name.toLowerCase()) && set.has(e.dst.table.name.toLowerCase()));
+  if (scope !== "all"){
+    const pos = compactLayout(nodes, subEdges, nodes.length <= 6 ? 190 : 120);
+    nodes.forEach(n => {
+      keep.set(n, { x: n.x, y: n.y });
+      const p = pos[n.table.name.toLowerCase()];
+      if (p){ n.x = p.x; n.y = p.y; }
+    });
+  }
+  const restore = () => keep.forEach((v, n) => { n.x = v.x; n.y = v.y; });
+
+  const PAD = 40, TOP = 54;
+  const minX = Math.min(...nodes.map(n => n.x)) - PAD;
+  const minY = Math.min(...nodes.map(n => n.y)) - PAD - TOP;
+  const maxX = Math.max(...nodes.map(n => n.x + n.w)) + PAD;
+  const maxY = Math.max(...nodes.map(n => n.y + n.h)) + PAD;
+  const w = Math.round(maxX - minX), h = Math.round(maxY - minY);
+
+  let body = "";
+  subEdges.forEach(e => {
+    const d = wirePath(e, scope === "all" ? state.wireMode : "curve");
+    body += `<path class="wire fk" d="${d}" marker-end="url(#ar)"/>`;
+    // etichetta della colonna: utile quando si esporta una singola relazione
+    if (set.size <= 6){
+      const sy = rowY(e.src, e.srcRow), dy = rowY(e.dst, e.dstRow);
+      const fromLeft = e.dst.x + e.dst.w / 2 < e.src.x + e.src.w / 2;
+      const x1 = fromLeft ? e.src.x : e.src.x + e.src.w;
+      const x2 = fromLeft ? e.dst.x + e.dst.w : e.dst.x;
+      const mx = (x1 + x2) / 2, my = (sy + dy) / 2;
+      body += `<text class="elabel" x="${mx.toFixed(1)}" y="${(my - 6).toFixed(1)}" text-anchor="middle">`
+            + `${esc(e.fk.column)} → ${esc(e.fk.refColumn)}</text>`;
+      if (e.fk.onDelete && set.size <= 4)
+        body += `<text class="elabel" x="${mx.toFixed(1)}" y="${(my + 7).toFixed(1)}" text-anchor="middle" opacity="0.75">`
+              + `ON DELETE ${esc(e.fk.onDelete)}</text>`;
+    }
+  });
+  nodes.forEach(n => {
+    const clone = n.g.cloneNode(true);
+    clone.setAttribute("transform", `translate(${n.x} ${n.y})`);
+    clone.classList.remove("mute", "sel", "rel", "marked");
+    if (state.marked.has(n.table.name.toLowerCase())) clone.classList.add("marked");
+    else if (scope === "sel-rel" && state.selected && n.table.name === state.selected) clone.classList.add("sel");
+    body += clone.outerHTML;
+  });
+
+  const names = [...set].slice(0, 3).join(", ") + (set.size > 3 ? ` +${set.size - 3}` : "");
+  const title = scope === "all" ? "Schema completo" : names;
+  const sub = `${esc(state.fileName)} · ${label} · ${nodes.length} tabelle`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`
+    + `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#121214"/>`
+    + `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">`
+    + `<path d="M0 1 L7 4 L0 7 z" fill="#7a66ab"/></marker></defs>`
+    + `<style>${EXPORT_STYLE}</style>`
+    + `<text class="cap" x="${minX + PAD}" y="${minY + 30}">${esc(title)}</text>`
+    + `<text class="capsub" x="${minX + PAD}" y="${minY + 47}">${sub}</text>`
+    + body + `</svg>`;
+
+  restore();
+
+  const base = (state.fileName.replace(/\.sql$/i, "") || "schema");
+  const slug = scope === "all" ? "completo" : [...set].slice(0, 2).join("-").replace(/[^a-z0-9_-]/gi, "");
+  return { svg, w, h, name: `${base}_${slug}`, count: nodes.length };
+}
+
+function download(blob, filename){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function noScopeToast(scope){
+  if (scope === "marked" || scope === "marked-rel")
+    toast("Nessuna tabella segnata: ⌘-clic su una tabella per segnarla");
+  else toast("Nessuna tabella selezionata");
+}
+
+/* ---- menu di esportazione: si sceglie il formato (ricordato) e l'ambito ---- */
+state.fmt = (() => {
+  try { return localStorage.getItem("schemastudio:fmt") || "png"; } catch(e){ return "png"; }
+})();
+function setFmt(f){
+  state.fmt = f;
+  try { localStorage.setItem("schemastudio:fmt", f); } catch(e){}
+  document.querySelectorAll(".fmtseg button").forEach(b => b.classList.toggle("on", b.dataset.fmt === f));
+}
+
+const FMT_LABEL = { png: "PNG", svg: "SVG", clip: "PNG negli appunti" };
+
+function scopeInfo(scope){
+  const picked = exportScopeSet(scope);
+  return picked ? picked.set.size : 0;
+}
+
+function buildExportMenu(){
+  const sel = state.selected && tableByName(state.selected) ? state.selected : null;
+  const marks = state.marked.size;
+  const rows = [
+    { scope: "sel-rel", icon: "link", title: sel ? `Relazioni di ${sel}` : "Relazioni della tabella selezionata",
+      sub: sel ? "la tabella e tutte quelle collegate" : "nessuna tabella selezionata", on: !!sel },
+    { scope: "marked", icon: "flag", title: "Solo le tabelle segnate",
+      sub: marks ? [...state.marked].slice(0, 3).join(", ") + (marks > 3 ? ` +${marks - 3}` : "") : "⌘-clic su una tabella per segnarla",
+      on: marks > 0 },
+    { scope: "marked-rel", icon: "flag", title: "Segnate + tabelle collegate",
+      sub: marks ? "aggiunge il vicinato delle segnate" : "nessuna tabella segnata", on: marks > 0 },
+    { scope: "all", icon: "grid", title: "Tutto lo schema",
+      sub: state.model ? state.fileName : "", on: !!state.nodes.length }
+  ];
+  const ic = {
+    link: '<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/>',
+    flag: '<path d="M19 21 12 17l-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'
+  };
+  $("#expMenu").innerHTML = `
+    <div class="mlabel">Formato <span class="r">ricordato</span></div>
+    <div class="fmtseg">
+      <button data-fmt="png" class="${state.fmt === "png" ? "on" : ""}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/>
+        </svg>PNG</button>
+      <button data-fmt="svg" class="${state.fmt === "svg" ? "on" : ""}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 16V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 15V9l4 6 4-6v6"/>
+        </svg>SVG</button>
+      <button data-fmt="clip" class="${state.fmt === "clip" ? "on" : ""}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+        </svg>Appunti</button>
+    </div>
+    <div class="sep"></div>
+    <div class="mlabel">Cosa esportare</div>` +
+    rows.map(r => {
+      const n = r.on ? scopeInfo(r.scope) : 0;
+      return `<button class="mrow" data-scope="${r.scope}" ${r.on ? "" : "disabled"} role="menuitem">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ic[r.icon]}</svg></span>
+        <span class="txt"><span>${esc(r.title)}</span><span class="sub">${esc(r.sub)}</span></span>
+        <span class="cnt">${n ? n + " tab." : ""}</span>
+      </button>`;
+    }).join("") +
+    `<div class="sep"></div>
+     <div class="hintrow">I sottoinsiemi vengono ricompattati: l'immagine è grande quanto serve.
+       ${state.fmt === "png" ? "PNG a 2x su fondo scuro." : state.fmt === "svg" ? "SVG vettoriale, ridimensionabile." : "L'immagine finisce negli appunti, pronta da incollare."}</div>`;
+}
+
+function openExportMenu(){
+  const btn = $("#btnExportMenu");
+  buildExportMenu();
+  const m = $("#expMenu");
+  m.hidden = false;
+  const st = document.querySelector(".stage").getBoundingClientRect();
+  const b = btn.getBoundingClientRect();
+  m.style.top = (b.bottom - st.top + 6) + "px";
+  m.style.left = Math.max(8, Math.min(b.left - st.left, st.width - m.offsetWidth - 10)) + "px";
+  btn.setAttribute("aria-expanded", "true");
+  btn.classList.add("on");
+}
+function closeExportMenu(){
+  $("#expMenu").hidden = true;
+  $("#btnExportMenu").setAttribute("aria-expanded", "false");
+  $("#btnExportMenu").classList.remove("on");
+}
+$("#btnExportMenu").addEventListener("click", ev => {
+  ev.stopPropagation();
+  if ($("#expMenu").hidden) openExportMenu(); else closeExportMenu();
+});
+document.addEventListener("click", ev => {
+  if (!$("#expMenu").hidden && !ev.target.closest("#expMenu") && !ev.target.closest("#btnExportMenu")) closeExportMenu();
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeExportMenu(); });
+
+$("#expMenu").addEventListener("click", ev => {
+  ev.stopPropagation();   // il rebuild del menu stacca il target dal DOM: senza
+                          // questo il click-fuori lo chiuderebbe subito dopo
+  const f = ev.target.closest("[data-fmt]");
+  if (f){ setFmt(f.dataset.fmt); buildExportMenu(); return; }
+  const row = ev.target.closest(".mrow");
+  if (!row || row.disabled) return;
+  closeExportMenu();
+  runExport(row.dataset.scope, state.fmt);
+});
+
+function noScopeToast(scope){
+  if (scope === "marked" || scope === "marked-rel")
+    toast("Nessuna tabella segnata: ⌘-clic su una tabella per segnarla");
+  else toast("Nessuna tabella selezionata");
+}
+
+function download(blob, filename){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function runExport(scope, fmt){
+  if (!state.nodes.length) return;
+  const r = buildExportSvg(scope);
+  if (!r) return noScopeToast(scope);
+
+  if (fmt === "svg"){
+    download(new Blob([r.svg], { type: "image/svg+xml" }), r.name + ".svg");
+    toast(`SVG esportato · ${r.count} tabelle`);
+    return;
+  }
+
+  let scale = 2;
+  if (r.w * scale > 8000 || r.h * scale > 8000) scale = Math.max(1, Math.min(8000 / r.w, 8000 / r.h));
+  const img = new Image();
+  img.onload = () => {
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(r.w * scale); cv.height = Math.round(r.h * scale);
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#121214"; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    cv.toBlob(blob => {
+      if (!blob) return toast("Esportazione PNG non riuscita");
+      if (fmt === "clip"){
+        if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)){
+          download(blob, r.name + ".png");
+          toast("Appunti non disponibili in questo browser: PNG scaricato");
+          return;
+        }
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+          .then(() => toast(`Immagine negli appunti · ${r.count} tabelle`))
+          .catch(() => { download(blob, r.name + ".png"); toast("Copia non riuscita: PNG scaricato"); });
+        return;
+      }
+      download(blob, r.name + ".png");
+      toast(`PNG esportato · ${r.count} tabelle · ${cv.width}×${cv.height}`);
+    }, "image/png");
+  };
+  img.onerror = () => toast("Esportazione non riuscita");
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(r.svg);
+}
+
+/* ---------------------------------------------------------- utilità */
+let toastTimer;
+function toast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+}
+
+document.addEventListener("keydown", ev => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "k"){ ev.preventDefault(); $("#search").focus(); $("#search").select(); return; }
+  if (ev.target.tagName === "INPUT") return;
+  if (ev.key === "f" || ev.key === "F"){ fit(); }
+  if (ev.key === "Escape"){ select(null); }
+  if ((ev.key === "m" || ev.key === "M") && state.selected) toggleMark(state.selected);
+  if ((ev.key === "e" || ev.key === "E") && state.nodes.length){ ev.preventDefault(); openExportMenu(); }
+  if (ev.key === "o" && (ev.metaKey || ev.ctrlKey)){ ev.preventDefault(); $("#fileInput").click(); }
+});
+
+let rz;
+window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawGrid, 80); });
+
+
+/* ===================================================================
+   5. NAVIGAZIONE FRA LE VISTE
+   =================================================================== */
+state.view2 = "graph";
+function switchView(name){
+  state.view2 = name;
+  document.querySelectorAll(".navitem").forEach(b => b.classList.toggle("on", b.dataset.view === name));
+  $("#viewGraph").classList.toggle("on", name === "graph");
+  $("#viewLint").classList.toggle("on", name === "lint");
+  $("#viewDiff").classList.toggle("on", name === "diff");
+  const g = $("#bodyGrid");
+  if (name === "graph"){
+    if (state.inspectorWanted !== false){ g.classList.remove("noinspector"); $("#inspector").style.display = ""; }
+    requestAnimationFrame(drawGrid);
+  } else {
+    g.classList.add("noinspector");
+    $("#inspector").style.display = "none";
+  }
+  if (name === "lint") renderLint();
+  if (name === "diff") renderDiff();
+}
+document.querySelectorAll(".navitem").forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+
+function gotoTable(name){
+  switchView("graph");
+  select(name);
+  centerOn(name, true);
+}
+
+/* ===================================================================
+   6. ANALISI STATICA DELLO SCHEMA
+   Solo regole verificabili sul file: nessuna stima, nessun numero
+   inventato. Ogni riscontro rimanda alla tabella nel grafo.
+   =================================================================== */
+function firstCol(list){ return String(list).split(",")[0].trim().replace(/["'`]/g, ""); }
+
+function lintRules(m){
+  const rules = [];
+  const T = m.tables;
+  const byName = {}; T.forEach(t => byName[t.name.toLowerCase()] = t);
+
+  // 1. chiavi esterne senza indice
+  const noIdx = [];
+  T.forEach(t => t.fks.forEach(fk => {
+    if (!fkIndexed(t, fk.column)) noIdx.push({ label: `${t.name}.${fk.column}`, sub: "→ " + fk.refTable, table: t.name });
+  }));
+  rules.push({
+    id: "fk-idx", sev: "alta", title: "Chiavi esterne senza indice", hits: noIdx,
+    why: "Postgres non crea automaticamente un indice sulla colonna che referenzia. Senza, ogni cancellazione o aggiornamento della tabella padre costringe a una scansione sequenziale della figlia per verificare il vincolo, e i JOIN sulla FK pagano lo stesso prezzo. Un indice UNIQUE o la chiave primaria che partono da quella colonna contano come copertura."
+  });
+
+  // 2. tabelle senza chiave primaria
+  rules.push({
+    id: "no-pk", sev: "alta", title: "Tabelle senza chiave primaria",
+    hits: T.filter(t => !t.pk.length).map(t => ({ label: t.name, sub: t.columns.length + " colonne", table: t.name })),
+    why: "Senza PK non esiste un modo garantito di identificare una riga: gli aggiornamenti puntuali diventano ambigui, la replica logica non funziona e i duplicati entrano silenziosamente."
+  });
+
+  // 3. store_id senza RLS
+  rules.push({
+    id: "rls-missing", sev: "alta", title: "Tabelle multi-tenant senza Row-Level Security",
+    hits: T.filter(t => t.columns.some(c => c.name === "store_id") && !t.rls.enabled)
+           .map(t => ({ label: t.name, sub: "ha store_id", table: t.name })),
+    why: "La tabella porta store_id, quindi contiene dati di negozi diversi, ma nessuna policy filtra le righe. Una query applicativa che dimentica il WHERE store_id restituisce i dati di tutti i tenant."
+  });
+
+  // 4. RLS abilitata senza FORCE
+  rules.push({
+    id: "rls-force", sev: "media", title: "RLS abilitata ma non forzata",
+    hits: T.filter(t => t.rls.enabled && !t.rls.forced).map(t => ({ label: t.name, sub: "manca FORCE", table: t.name })),
+    why: "Senza FORCE ROW LEVEL SECURITY il proprietario della tabella ignora le policy. Se per errore il backend si collega con il ruolo owner (o con un ruolo BYPASSRLS) l'isolamento fra negozi sparisce senza alcun errore."
+  });
+
+  // 5. RLS abilitata senza policy
+  rules.push({
+    id: "rls-nopolicy", sev: "alta", title: "RLS abilitata senza nessuna policy",
+    hits: T.filter(t => t.rls.enabled && !t.policies.length).map(t => ({ label: t.name, sub: "0 policy", table: t.name })),
+    why: "Con RLS attiva e nessuna policy, Postgres nega tutto: la tabella risulta vuota per chiunque non sia owner. È fail-closed, quindi non è un buco di sicurezza, ma quasi sempre è una dimenticanza."
+  });
+
+  // 6. indici ridondanti (prefisso di un altro)
+  const redundant = [];
+  T.forEach(t => {
+    const idx = t.indexes.map(i => ({ i, cols: i.columns.split(",").map(x => x.trim().replace(/["'`]/g, "")).join(",") }));
+    idx.forEach(a => idx.forEach(b => {
+      if (a.i === b.i || a.i.where || b.i.where) return;
+      if (b.cols !== a.cols && b.cols.startsWith(a.cols + ",") && !(a.i.unique && !b.i.unique)){
+        redundant.push({ label: a.i.name, sub: "coperto da " + b.i.name, table: t.name });
+      }
+    }));
+  });
+  rules.push({
+    id: "idx-dup", sev: "media", title: "Indici ridondanti", hits: redundant,
+    why: "Un indice su (a) è inutile se ne esiste già uno su (a, b): il secondo serve anche le ricerche sulla sola prima colonna. Ogni indice in più rallenta scritture e vacuum e occupa spazio, senza dare nulla in cambio."
+  });
+
+  // 7. TIMESTAMP senza fuso orario
+  const naive = [];
+  T.forEach(t => t.columns.forEach(c => {
+    if (/^TIMESTAMP(\s*\(\d+\))?$/i.test(c.type.trim())) naive.push({ label: `${t.name}.${c.name}`, sub: c.type, table: t.name });
+  }));
+  rules.push({
+    id: "ts-naive", sev: "media", title: "Timestamp senza fuso orario", hits: naive,
+    why: "TIMESTAMP senza TIME ZONE registra un orario privo di riferimento: due righe scritte nello stesso istante da server con fuso diverso risultano diverse, e il passaggio all'ora legale crea buchi e doppioni. TIMESTAMPTZ conserva l'istante assoluto."
+  });
+
+  // 8. colonne "di stato" testuali senza CHECK
+  const enumish = [];
+  T.forEach(t => {
+    const checksText = t.constraints.filter(c => c.kind === "CHECK").map(c => c.definition).join(" ").replace(/"/g, "");
+    t.columns.forEach(c => {
+      if (!/^TEXT|VARCHAR/i.test(c.type)) return;
+      if (!/(status|state|type|scheme|method|regime|kind)$/i.test(c.name)) return;
+      const own = c.check && c.check.includes(c.name);
+      const tbl = new RegExp("\\b" + c.name + "\\b").test(checksText);
+      if (!own && !tbl) enumish.push({ label: `${t.name}.${c.name}`, sub: "nessun CHECK", table: t.name });
+    });
+  });
+  rules.push({
+    id: "enum-free", sev: "media", title: "Colonne di stato senza elenco di valori ammessi", hits: enumish,
+    why: "Una colonna che nel nome dichiara di essere uno stato o un tipo, ma accetta qualunque testo, prima o poi contiene 'COMPLETED', 'completed' e 'completato'. Un CHECK con l'elenco dei valori (o un tipo enum) blocca il problema alla fonte."
+  });
+
+  // 9. colonne numeriche sensibili senza CHECK di range
+  const unbounded = [];
+  T.forEach(t => {
+    const checksText = t.constraints.filter(c => c.kind === "CHECK").map(c => c.definition).join(" ").replace(/"/g, "");
+    t.columns.forEach(c => {
+      if (!/^(NUMERIC|DECIMAL|INT|INTEGER|BIGINT|SMALLINT)/i.test(c.type)) return;
+      if (!/(percentage|percent|quantity|qty|price|amount|cost|fee|discount|balance|points|grade)/i.test(c.name)) return;
+      if (c.pk || c.fk) return;
+      const own = c.check && c.check.includes(c.name);
+      const tbl = new RegExp("\\b" + c.name + "\\b").test(checksText);
+      if (!own && !tbl) unbounded.push({ label: `${t.name}.${c.name}`, sub: c.type, table: t.name });
+    });
+  });
+  rules.push({
+    id: "num-range", sev: "info", title: "Importi, quantità e percentuali senza limiti", hits: unbounded,
+    why: "Una percentuale che accetta 3000, una quantità che accetta -5 o un prezzo negativo entrano nel database e li scopri a valle, in un totale sbagliato. Un CHECK di range costa nulla in scrittura ed è l'unico punto in cui la regola vale per tutti i client."
+  });
+
+  // 10. catene di ON DELETE CASCADE
+  const chains = [];
+  const childrenOf = {};
+  T.forEach(t => t.fks.forEach(fk => {
+    if (fk.onDelete !== "CASCADE") return;
+    const parent = fk.refTable.toLowerCase();
+    (childrenOf[parent] = childrenOf[parent] || []).push(t.name);
+  }));
+  function depth(name, seen){
+    const kids = childrenOf[name.toLowerCase()] || [];
+    let best = { d: 0, path: [name] };
+    kids.forEach(k => {
+      if (seen.includes(k.toLowerCase())) return;
+      const sub = depth(k, seen.concat(name.toLowerCase()));
+      if (sub.d + 1 > best.d) best = { d: sub.d + 1, path: [name].concat(sub.path) };
+    });
+    return best;
+  }
+  T.forEach(t => {
+    const r = depth(t.name, []);
+    if (r.d >= 3) chains.push({ label: r.path.join(" → "), sub: r.d + " livelli", table: t.name });
+  });
+  rules.push({
+    id: "cascade", sev: "info", title: "Catene di ON DELETE CASCADE profonde", hits: chains,
+    why: "Cancellare una riga in cima alla catena ne cancella a valanga molte altre, spesso più di quanto chi scrive la query si aspetti. Non è un errore in sé, ma va conosciuto: qui una sola DELETE può arrivare a tre o più tabelle."
+  });
+
+  // 11. tabelle isolate
+  rules.push({
+    id: "orphan", sev: "info", title: "Tabelle senza alcuna relazione",
+    hits: T.filter(t => !t.fks.length && !t.refBy.length).map(t => ({ label: t.name, sub: t.columns.length + " colonne", table: t.name })),
+    why: "Nessuna FK entrante né uscente. Può essere corretto (tabelle di lookup, log, code di import), ma se la tabella dovrebbe far parte del modello significa che il collegamento non è mai stato dichiarato."
+  });
+
+  // 12. FK senza ON DELETE esplicito
+  const noOd = [];
+  T.forEach(t => t.fks.forEach(fk => {
+    if (!fk.onDelete) noOd.push({ label: `${t.name}.${fk.column}`, sub: "→ " + fk.refTable, table: t.name });
+  }));
+  rules.push({
+    id: "fk-od", sev: "info", title: "Chiavi esterne senza ON DELETE esplicito", hits: noOd,
+    why: "Senza clausola vale NO ACTION: la cancellazione del padre fallisce con un errore di vincolo. Spesso è quello che si vuole, ma è meglio scriverlo — RESTRICT, SET NULL o CASCADE dicono a chi legge quale comportamento è stato scelto davvero."
+  });
+
+  rules.forEach(r => r.pass = r.hits.length === 0);
+  return rules;
+}
+
+function renderLint(){
+  const box = $("#lintBody");
+  if (!state.model){
+    box.innerHTML = `<div class="phead"><div><h2>Analisi dello schema</h2>
+      <p>Carica un file .sql dal grafo per eseguire i controlli.</p></div></div>`;
+    return;
+  }
+  const rules = lintRules(state.model);
+  const count = s => rules.filter(r => r.sev === s).reduce((n, r) => n + r.hits.length, 0);
+  const alta = count("alta"), media = count("media"), info = count("info");
+  const passed = rules.filter(r => r.pass).length;
+  $("#navLintN").textContent = (alta + media) || "";
+
+  box.innerHTML = `
+    <div class="phead">
+      <div>
+        <h2>Analisi dello schema</h2>
+        <p>Dodici controlli eseguiti su <span class="mono">${esc(state.fileName)}</span>: solo regole verificabili leggendo il file,
+           nessuna stima di performance. Ogni riscontro apre la tabella nel grafo.</p>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="tile ${alta ? "crit" : "ok"}"><span class="tn">${alta}</span><span class="tl">priorità alta</span></div>
+      <div class="tile ${media ? "warn" : "ok"}"><span class="tn">${media}</span><span class="tl">da valutare</span></div>
+      <div class="tile"><span class="tn">${info}</span><span class="tl">informativi</span></div>
+      <div class="tile ok"><span class="tn">${passed}/${rules.length}</span><span class="tl">controlli puliti</span></div>
+    </div>` +
+    rules.slice().sort((a, b) => {
+      const w = { alta: 0, media: 1, info: 2 };
+      return (a.pass - b.pass) || (w[a.sev] - w[b.sev]) || (b.hits.length - a.hits.length);
+    }).map(r => `
+      <div class="rule ${r.pass ? "pass closed" : ""}" data-rule="${r.id}">
+        <div class="rhead">
+          <span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+          <span class="sev ${r.pass ? "ok" : r.sev}">${r.pass ? "ok" : r.sev}</span>
+          <span class="rt">${esc(r.title)}</span>
+          <span class="rc">${r.pass ? "nessun riscontro" : r.hits.length + (r.hits.length === 1 ? " caso" : " casi")}</span>
+        </div>
+        <div class="rbody">
+          <p class="rwhy">${esc(r.why)}</p>
+          <div class="hits">${r.hits.slice(0, 200).map(h =>
+            `<button class="hit" data-goto="${esc(h.table)}">${esc(h.label)}<span class="sub">${esc(h.sub || "")}</span></button>`).join("")}
+          </div>
+        </div>
+      </div>`).join("");
+}
+
+$("#lintBody").addEventListener("click", ev => {
+  const head = ev.target.closest(".rhead");
+  if (head){ head.closest(".rule").classList.toggle("closed"); return; }
+  const hit = ev.target.closest("[data-goto]");
+  if (hit) gotoTable(hit.dataset.goto);
+});
+
+/* ===================================================================
+   7. CONFRONTO FRA DUE FILE
+   =================================================================== */
+state.diff = { a: null, b: null };
+
+function colSig(c){
+  return {
+    type: c.type.toUpperCase().replace(/\s+/g, ""),
+    notNull: !!c.notNull, pk: !!c.pk, unique: !!c.unique,
+    def: (c.default || "").replace(/\s+/g, " ").trim().toLowerCase(),
+    fk: c.fk ? `${c.fk.table}.${c.fk.column}${c.fk.onDelete ? " ON DELETE " + c.fk.onDelete : ""}`.toLowerCase() : ""
+  };
+}
+const normCon = d => String(d).replace(/"/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+function idxDdl(i){
+  return `CREATE ${i.unique ? "UNIQUE " : ""}INDEX ${i.name} ON ${i.table} (${i.columns})${i.where ? " WHERE " + i.where : ""};`;
+}
+function colDdl(c){
+  const bits = [c.name, c.type];
+  if (c.notNull) bits.push("NOT NULL");
+  if (c.default) bits.push("DEFAULT " + c.default);
+  if (c.unique) bits.push("UNIQUE");
+  if (c.fk) bits.push(`REFERENCES ${c.fk.table}(${c.fk.column})${c.fk.onDelete ? " ON DELETE " + c.fk.onDelete : ""}`);
+  if (c.check) bits.push("CHECK " + c.check);
+  return bits.join(" ");
+}
+
+function computeDiff(A, B){
+  const ma = {}, mb = {};
+  A.tables.forEach(t => ma[t.name.toLowerCase()] = t);
+  B.tables.forEach(t => mb[t.name.toLowerCase()] = t);
+  const added = B.tables.filter(t => !ma[t.name.toLowerCase()]);
+  const removed = A.tables.filter(t => !mb[t.name.toLowerCase()]);
+  const changed = [];
+
+  B.tables.forEach(tb => {
+    const ta = ma[tb.name.toLowerCase()];
+    if (!ta) return;
+    const ca = {}, cb = {};
+    ta.columns.forEach(c => ca[c.name] = c);
+    tb.columns.forEach(c => cb[c.name] = c);
+    const colsAdded = tb.columns.filter(c => !ca[c.name]);
+    const colsRemoved = ta.columns.filter(c => !cb[c.name]);
+    const colsChanged = [];
+    tb.columns.forEach(c => {
+      const o = ca[c.name]; if (!o) return;
+      const sa = colSig(o), sb = colSig(c);
+      const deltas = [];
+      if (sa.type !== sb.type) deltas.push({ what: "tipo", from: o.type, to: c.type });
+      if (sa.notNull !== sb.notNull) deltas.push({ what: "nullabilità", from: sa.notNull ? "NOT NULL" : "null ammesso", to: sb.notNull ? "NOT NULL" : "null ammesso" });
+      if (sa.def !== sb.def) deltas.push({ what: "default", from: o.default || "nessuno", to: c.default || "nessuno" });
+      if (sa.fk !== sb.fk) deltas.push({ what: "riferimento", from: sa.fk || "nessuno", to: sb.fk || "nessuno" });
+      if (sa.pk !== sb.pk) deltas.push({ what: "chiave primaria", from: sa.pk ? "sì" : "no", to: sb.pk ? "sì" : "no" });
+      if (deltas.length) colsChanged.push({ col: c, old: o, deltas });
+    });
+
+    const consA = ta.constraints.map(c => ({ c, k: normCon(c.definition) }));
+    const consB = tb.constraints.map(c => ({ c, k: normCon(c.definition) }));
+    const consAdded = consB.filter(x => !consA.some(y => y.k === x.k)).map(x => x.c);
+    const consRemoved = consA.filter(x => !consB.some(y => y.k === x.k)).map(x => x.c);
+
+    const idxA = ta.indexes, idxB = tb.indexes;
+    const idxAdded = idxB.filter(i => !idxA.some(j => j.name === i.name));
+    const idxRemoved = idxA.filter(i => !idxB.some(j => j.name === i.name));
+
+    const rlsChanged = ta.rls.enabled !== tb.rls.enabled || ta.rls.forced !== tb.rls.forced;
+    const polA = ta.policies.length, polB = tb.policies.length;
+
+    if (colsAdded.length || colsRemoved.length || colsChanged.length || consAdded.length ||
+        consRemoved.length || idxAdded.length || idxRemoved.length || rlsChanged || polA !== polB){
+      changed.push({ a: ta, b: tb, colsAdded, colsRemoved, colsChanged, consAdded, consRemoved,
+                     idxAdded, idxRemoved, rlsChanged, polA, polB });
+    }
+  });
+
+  return { added, removed, changed, A, B };
+}
+
+function genMigration(d, direction){
+  const up = direction === "up";
+  const from = up ? d.A : d.B, to = up ? d.B : d.A;
+  const addedT = up ? d.added : d.removed;
+  const removedT = up ? d.removed : d.added;
+  const out = [];
+  out.push(`-- ${up ? "UP" : "DOWN"}: da ${up ? "A" : "B"} verso ${up ? "B" : "A"}`);
+  out.push(`-- Bozza generata dal confronto dei due file. Da rileggere prima di eseguirla:`);
+  out.push(`-- i cambi di tipo possono richiedere USING, e ogni DROP perde i dati.`);
+  out.push("");
+
+  removedT.forEach(t => out.push(`DROP TABLE IF EXISTS ${t.name} CASCADE;`));
+  if (removedT.length) out.push("");
+
+  addedT.forEach(t => {
+    out.push(renderDdl(t));
+    t.indexes.forEach(i => out.push(idxDdl(i)));
+    if (t.rls.enabled){
+      out.push(`ALTER TABLE ${t.name} ENABLE ROW LEVEL SECURITY;`);
+      if (t.rls.forced) out.push(`ALTER TABLE ${t.name} FORCE ROW LEVEL SECURITY;`);
+    }
+    out.push("");
+  });
+
+  d.changed.forEach(ch => {
+    const t = up ? ch.b : ch.a;
+    const lines = [];
+    (up ? ch.colsAdded : ch.colsRemoved).forEach(c => lines.push(`ALTER TABLE ${t.name} ADD COLUMN ${colDdl(c)};`));
+    (up ? ch.colsRemoved : ch.colsAdded).forEach(c => lines.push(`ALTER TABLE ${t.name} DROP COLUMN ${c.name};`));
+    ch.colsChanged.forEach(cc => {
+      const target = up ? cc.col : cc.old, other = up ? cc.old : cc.col;
+      if (colSig(target).type !== colSig(other).type)
+        lines.push(`ALTER TABLE ${t.name} ALTER COLUMN ${target.name} TYPE ${target.type};  -- verificare se serve USING`);
+      if (!!target.notNull !== !!other.notNull)
+        lines.push(`ALTER TABLE ${t.name} ALTER COLUMN ${target.name} ${target.notNull ? "SET" : "DROP"} NOT NULL;`);
+      if ((target.default || "") !== (other.default || ""))
+        lines.push(target.default
+          ? `ALTER TABLE ${t.name} ALTER COLUMN ${target.name} SET DEFAULT ${target.default};`
+          : `ALTER TABLE ${t.name} ALTER COLUMN ${target.name} DROP DEFAULT;`);
+    });
+    (up ? ch.consAdded : ch.consRemoved).forEach(c => lines.push(
+      c.name ? `ALTER TABLE ${t.name} ADD CONSTRAINT ${c.name} ${c.definition.replace(/^CONSTRAINT\s+[\w"]+\s+/i, "")};`
+             : `ALTER TABLE ${t.name} ADD ${c.definition};`));
+    (up ? ch.consRemoved : ch.consAdded).forEach(c => lines.push(
+      c.name ? `ALTER TABLE ${t.name} DROP CONSTRAINT ${c.name};`
+             : `-- da rimuovere a mano (vincolo senza nome): ${c.definition}`));
+    (up ? ch.idxAdded : ch.idxRemoved).forEach(i => lines.push(idxDdl(i)));
+    (up ? ch.idxRemoved : ch.idxAdded).forEach(i => lines.push(`DROP INDEX IF EXISTS ${i.name};`));
+    if (ch.rlsChanged){
+      const r = up ? ch.b.rls : ch.a.rls;
+      lines.push(`ALTER TABLE ${t.name} ${r.enabled ? "ENABLE" : "DISABLE"} ROW LEVEL SECURITY;`);
+      if (r.enabled) lines.push(`ALTER TABLE ${t.name} ${r.forced ? "FORCE" : "NO FORCE"} ROW LEVEL SECURITY;`);
+    }
+    if (ch.polA !== ch.polB) lines.push(`-- policy RLS: ${up ? ch.polA + " → " + ch.polB : ch.polB + " → " + ch.polA} (da riportare a mano)`);
+    if (lines.length){
+      out.push(`-- ${t.name}`);
+      out.push(...lines, "");
+    }
+  });
+  return out.join("\n").trim() || "-- nessuna differenza fra i due file";
+}
+
+function slotHtml(key, label, slot){
+  if (!slot) return `
+    <div class="slot" data-slot="${key}">
+      <span class="lab">${label}</span>
+      <span class="fmeta">trascina qui un file .sql</span>
+      <div class="acts">
+        <button class="mini accent" data-pick="${key}">Scegli file…</button>
+        ${state.model ? `<button class="mini" data-use="${key}">Usa quello aperto</button>` : ""}
+      </div>
+    </div>`;
+  const m = slot.model;
+  return `
+    <div class="slot filled" data-slot="${key}">
+      <span class="lab">${label}</span>
+      <span class="fname">${esc(slot.name)}</span>
+      <span class="fmeta">${m.stats.tables} tabelle · ${m.stats.columns} colonne · ${m.stats.fks} FK · ${m.stats.indexes} indici</span>
+      <div class="acts">
+        <button class="mini" data-pick="${key}">Sostituisci</button>
+        <button class="mini" data-clear="${key}">Rimuovi</button>
+      </div>
+    </div>`;
+}
+
+function renderDiff(){
+  const box = $("#diffBody");
+  const { a, b } = state.diff;
+  let html = `
+    <div class="phead">
+      <div>
+        <h2>Confronto fra due file</h2>
+        <p>Due versioni dello stesso schema a confronto: cosa è stato aggiunto, tolto o modificato,
+           più la bozza degli ALTER TABLE per passare dall'una all'altra.</p>
+      </div>
+    </div>
+    <div class="slots">
+      ${slotHtml("a", "A · prima", a)}
+      <div class="vs">→</div>
+      ${slotHtml("b", "B · dopo", b)}
+    </div>`;
+
+  if (!a || !b){
+    box.innerHTML = html + `<p class="empty" style="padding:4px">Carica entrambi i file per vedere le differenze.</p>`;
+    $("#navDiffN").textContent = "";
+    return;
+  }
+
+  const d = computeDiff(a.model, b.model);
+  state.diffResult = d;
+  const colsAdd = d.changed.reduce((n, c) => n + c.colsAdded.length, 0);
+  const colsDel = d.changed.reduce((n, c) => n + c.colsRemoved.length, 0);
+  const colsMod = d.changed.reduce((n, c) => n + c.colsChanged.length, 0);
+  const idxAdd = d.changed.reduce((n, c) => n + c.idxAdded.length, 0) + d.added.reduce((n, t) => n + t.indexes.length, 0);
+  const consAdd = d.changed.reduce((n, c) => n + c.consAdded.length, 0);
+  const total = d.added.length + d.removed.length + d.changed.length;
+  $("#navDiffN").textContent = total || "";
+
+  html += `
+    <div class="tiles">
+      <div class="tile ${d.added.length ? "add" : ""}"><span class="tn">${d.added.length}</span><span class="tl">tabelle aggiunte</span></div>
+      <div class="tile ${d.removed.length ? "del" : ""}"><span class="tn">${d.removed.length}</span><span class="tl">tabelle rimosse</span></div>
+      <div class="tile ${d.changed.length ? "mod" : ""}"><span class="tn">${d.changed.length}</span><span class="tl">tabelle modificate</span></div>
+      <div class="tile ${colsAdd ? "add" : ""}"><span class="tn">${colsAdd ? "+" + colsAdd : 0}</span><span class="tl">colonne aggiunte</span></div>
+      <div class="tile ${colsDel ? "del" : ""}"><span class="tn">${colsDel ? "−" + colsDel : 0}</span><span class="tl">colonne rimosse</span></div>
+      <div class="tile ${colsMod ? "mod" : ""}"><span class="tn">${colsMod}</span><span class="tl">colonne cambiate</span></div>
+      <div class="tile ${consAdd ? "add" : ""}"><span class="tn">${consAdd ? "+" + consAdd : 0}</span><span class="tl">vincoli aggiunti</span></div>
+      <div class="tile ${idxAdd ? "add" : ""}"><span class="tn">${idxAdd ? "+" + idxAdd : 0}</span><span class="tl">indici aggiunti</span></div>
+    </div>`;
+
+  if (!total){
+    html += `<div class="warnbox"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+      <p>I due file descrivono lo stesso schema: nessuna differenza in tabelle, colonne, vincoli, indici o RLS.</p></div>`;
+    box.innerHTML = html;
+    return;
+  }
+
+  d.added.forEach(t => {
+    html += `<div class="dtable closed" data-t="${esc(t.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev ok">nuova</span><span class="nm">${esc(t.name)}</span>
+        <span class="sum"><span style="color:var(--green)">+${t.columns.length} colonne</span></span></div>
+      <div class="dtbody">` +
+      t.columns.map(c => `<div class="dline add"><span class="sign">+</span><span>${esc(colDdl(c))}</span></div>`).join("") +
+      `</div></div>`;
+  });
+
+  d.removed.forEach(t => {
+    html += `<div class="dtable closed" data-t="${esc(t.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev alta">rimossa</span><span class="nm">${esc(t.name)}</span>
+        <span class="sum"><span style="color:#ff8a80">−${t.columns.length} colonne</span></span></div>
+      <div class="dtbody">` +
+      t.columns.map(c => `<div class="dline del"><span class="sign">−</span><span>${esc(colDdl(c))}</span></div>`).join("") +
+      `</div></div>`;
+  });
+
+  d.changed.forEach(ch => {
+    const bits = [];
+    if (ch.colsAdded.length) bits.push(`<span style="color:var(--green)">+${ch.colsAdded.length} col</span>`);
+    if (ch.colsRemoved.length) bits.push(`<span style="color:#ff8a80">−${ch.colsRemoved.length} col</span>`);
+    if (ch.colsChanged.length) bits.push(`<span style="color:var(--blue-2)">${ch.colsChanged.length} mod</span>`);
+    if (ch.consAdded.length) bits.push(`<span style="color:var(--green)">+${ch.consAdded.length} vincoli</span>`);
+    if (ch.consRemoved.length) bits.push(`<span style="color:#ff8a80">−${ch.consRemoved.length} vincoli</span>`);
+    if (ch.idxAdded.length) bits.push(`<span style="color:var(--green)">+${ch.idxAdded.length} idx</span>`);
+    if (ch.idxRemoved.length) bits.push(`<span style="color:#ff8a80">−${ch.idxRemoved.length} idx</span>`);
+    if (ch.rlsChanged) bits.push(`<span style="color:#b794f4">RLS</span>`);
+
+    html += `<div class="dtable" data-t="${esc(ch.b.name)}">
+      <div class="dthead"><span class="tw"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sev info">modificata</span><span class="nm">${esc(ch.b.name)}</span>
+        <span class="sum">${bits.join("")}</span></div>
+      <div class="dtbody">` +
+      ch.colsAdded.map(c => `<div class="dline add"><span class="sign">+</span><span>${esc(colDdl(c))}</span></div>`).join("") +
+      ch.colsRemoved.map(c => `<div class="dline del"><span class="sign">−</span><span>${esc(colDdl(c))}</span></div>`).join("") +
+      ch.colsChanged.map(cc => cc.deltas.map(dd =>
+        `<div class="dline mod"><span class="sign">~</span><span>${esc(cc.col.name)}</span>
+          <span class="kind">${esc(dd.what)}</span>
+          <span class="was">${esc(dd.from)}</span><span>→</span><span>${esc(dd.to)}</span></div>`).join("")).join("") +
+      ch.consAdded.map(c => `<div class="dline add"><span class="sign">+</span><span class="kind">vincolo</span><span>${esc(c.definition)}</span></div>`).join("") +
+      ch.consRemoved.map(c => `<div class="dline del"><span class="sign">−</span><span class="kind">vincolo</span><span>${esc(c.definition)}</span></div>`).join("") +
+      ch.idxAdded.map(i => `<div class="dline add"><span class="sign">+</span><span class="kind">indice</span><span>${esc(i.name)} (${esc(i.columns)})</span></div>`).join("") +
+      ch.idxRemoved.map(i => `<div class="dline del"><span class="sign">−</span><span class="kind">indice</span><span>${esc(i.name)} (${esc(i.columns)})</span></div>`).join("") +
+      (ch.rlsChanged ? `<div class="dline mod"><span class="sign">~</span><span class="kind">RLS</span>
+        <span class="was">${ch.a.rls.enabled ? (ch.a.rls.forced ? "attiva + FORCE" : "attiva") : "assente"}</span><span>→</span>
+        <span>${ch.b.rls.enabled ? (ch.b.rls.forced ? "attiva + FORCE" : "attiva") : "assente"}</span></div>` : "") +
+      (ch.polA !== ch.polB ? `<div class="dline mod"><span class="sign">~</span><span class="kind">policy</span>
+        <span class="was">${ch.polA}</span><span>→</span><span>${ch.polB}</span></div>` : "") +
+      `</div></div>`;
+  });
+
+  html += `
+    <div class="warnbox" style="margin-top:18px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 3 2 20h20z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>
+      <p>Gli script qui sotto sono una bozza ricavata dal confronto dei due file, non una migrazione verificata:
+         un cambio di tipo può richiedere <span class="mono">USING</span>, le policy RLS e i trigger vanno riportati a mano,
+         e ogni <span class="mono">DROP</span> perde i dati. Rileggili prima di eseguirli.</p>
+    </div>
+    <div class="mig">
+      <div class="mighead"><span class="t">Script UP · da A verso B</span>
+        <span class="acts"><button class="mini" data-copy="up">Copia</button><button class="mini" data-dl="up">Scarica .sql</button></span></div>
+      <pre id="migUp">${hl(genMigration(d, "up"))}</pre>
+    </div>
+    <div class="mig">
+      <div class="mighead"><span class="t">Script DOWN · da B verso A</span>
+        <span class="acts"><button class="mini" data-copy="down">Copia</button><button class="mini" data-dl="down">Scarica .sql</button></span></div>
+      <pre id="migDown">${hl(genMigration(d, "down"))}</pre>
+    </div>`;
+
+  box.innerHTML = html;
+}
+
+function setSlot(key, text, name){
+  try {
+    const model = Parser.parse(text);
+    if (!model.tables.length){ toast("Nessun CREATE TABLE in " + name); return; }
+    state.diff[key] = { model, name };
+    renderDiff();
+    toast(`${name}: ${model.stats.tables} tabelle lette`);
+  } catch(e){ toast("Errore leggendo " + name + ": " + e.message); }
+}
+function readInto(key, file){
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => setSlot(key, String(rd.result), file.name);
+  rd.readAsText(file);
+}
+
+$("#diffBody").addEventListener("click", ev => {
+  const head = ev.target.closest(".dthead");
+  if (head){ head.closest(".dtable").classList.toggle("closed"); return; }
+  const pick = ev.target.closest("[data-pick]");
+  if (pick){ $(pick.dataset.pick === "a" ? "#fileA" : "#fileB").click(); return; }
+  const clear = ev.target.closest("[data-clear]");
+  if (clear){ state.diff[clear.dataset.clear] = null; renderDiff(); return; }
+  const use = ev.target.closest("[data-use]");
+  if (use && state.model){
+    state.diff[use.dataset.use] = { model: state.model, name: state.fileName };
+    renderDiff(); return;
+  }
+  const copy = ev.target.closest("[data-copy]");
+  if (copy && state.diffResult){
+    const sqlText = genMigration(state.diffResult, copy.dataset.copy);
+    navigator.clipboard.writeText(sqlText).then(() => toast("Script copiato negli appunti"), () => toast("Copia non riuscita"));
+    return;
+  }
+  const dl = ev.target.closest("[data-dl]");
+  if (dl && state.diffResult){
+    const dir = dl.dataset.dl;
+    const blob = new Blob([genMigration(state.diffResult, dir)], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `migration_${dir}.sql`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast("Script scaricato");
+  }
+});
+$("#fileA").addEventListener("change", ev => readInto("a", ev.target.files[0]));
+$("#fileB").addEventListener("change", ev => readInto("b", ev.target.files[0]));
+
+// drag & drop sui due riquadri
+["dragenter", "dragover", "dragleave", "drop"].forEach(t => $("#diffBody").addEventListener(t, ev => {
+  const slot = ev.target.closest("[data-slot]");
+  if (!slot) return;
+  ev.preventDefault(); ev.stopPropagation();
+  if (t === "dragover" || t === "dragenter") slot.classList.add("over");
+  else slot.classList.remove("over");
+  if (t === "drop"){
+    const f = ev.dataTransfer && ev.dataTransfer.files[0];
+    if (f) readInto(slot.dataset.slot, f);
+  }
+}, true));
+
+
+initSvg();
+applyView();
+showRecent();
+requestAnimationFrame(drawGrid);
+</script>
+</body>
+</html>
